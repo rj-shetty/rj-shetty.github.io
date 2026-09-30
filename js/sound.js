@@ -58,9 +58,9 @@ class SoundEngine {
   // Smooth Envelope helper to prevent speaker popping
   createSmoothGain(now, peakVal, attack, decay) {
     const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0, now); // Start exactly at 0
-    gain.gain.linearRampToValueAtTime(peakVal, now + attack); // Smoothly ramp up
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + attack + decay); // Trail off smoothly
+    gain.gain.setValueAtTime(0, now); 
+    gain.gain.linearRampToValueAtTime(peakVal, now + attack); 
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + attack + decay); 
     return gain;
   }
 
@@ -150,7 +150,6 @@ class SoundEngine {
     osc.stop(now + 0.17);
   }
 
-  // --- LOFI PLAYER LOGIC REMAINS IDENTICAL ---
   noteToFreq(noteStr) {
     const notes = {
       "C3": 130.81, "D3": 146.83, "E3": 164.81, "F3": 174.61, "G3": 196.00, "A3": 220.00, "B3": 246.94,

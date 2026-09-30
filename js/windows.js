@@ -131,9 +131,9 @@ class WindowManager {
       win.prevStyle = { left: win.el.style.left, top: win.el.style.top, width: win.el.style.width, height: win.el.style.height };
       win.el.classList.add("maximized");
       win.el.style.left = "0px";
-      win.el.style.top = "38px"; // Below standard 38px top-bar
+      win.el.style.top = "38px"; 
       win.el.style.width = "100vw";
-      win.el.style.height = "calc(100vh - 84px)"; // Accounts for 46px taskbar
+      win.el.style.height = "calc(100vh - 84px)"; 
     } else {
       win.el.classList.remove("maximized");
       if (win.prevStyle) {
@@ -212,10 +212,9 @@ class WindowManager {
     let newX = clientX - this.dragOffset.x;
     let newY = clientY - this.dragOffset.y;
 
-    // Strict Boundaries: Prevent window getting lost under top menu (38px) or fully offscreen
-    const minX = -this.dragTarget.el.offsetWidth + 80; // Keep at least 80px grab area horizontally
+    const minX = -this.dragTarget.el.offsetWidth + 80;
     const maxX = window.innerWidth - 60; 
-    const minY = 38; // Height of the top menubar
+    const minY = 38; 
     const maxY = window.innerHeight - 60;
 
     newX = Math.max(minX, Math.min(newX, maxX));

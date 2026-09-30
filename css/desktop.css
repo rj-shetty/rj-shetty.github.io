@@ -193,7 +193,7 @@ body.dark-theme .icon-label {
 }
 
 /* =============================================================================
-   BOTTOM TASKBAR & DOCK (Modern floating style)
+   BOTTOM TASKBAR & DOCK
    ============================================================================= */
 .bottom-taskbar {
   position: absolute;
@@ -259,7 +259,6 @@ body.dark-theme .bottom-taskbar {
   padding: 0 12px;
 }
 
-/* Hide scrollbar for neatness */
 .taskbar-tabs::-webkit-scrollbar { display: none; }
 .taskbar-tabs { -ms-overflow-style: none; scrollbar-width: none; }
 
