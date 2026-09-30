@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="3" dy="3" stdDeviation="0" flood-color="#2b2825"/>
+    </filter>
+  </defs>
+
+  <!-- Background Circle / Base -->
+  <circle cx="100" cy="100" r="92" fill="#f4c042" stroke="#2b2825" stroke-width="5"/>
+
+  <!-- Torso / Hoodie -->
+  <path d="M42 186 C45 145, 65 132, 100 132 C135 132, 155 145, 158 186 Z" fill="#e0533c" stroke="#2b2825" stroke-width="5"/>
+  <path d="M85 133 L100 156 L115 133 Z" fill="#fffdfa" stroke="#2b2825" stroke-width="3"/>
+
+  <!-- Neck -->
+  <rect x="88" y="112" width="24" height="25" fill="#fcd5b5" stroke="#2b2825" stroke-width="4"/>
+
+  <!-- Face Head -->
+  <rect x="62" y="52" width="76" height="74" rx="24" fill="#fcd5b5" stroke="#2b2825" stroke-width="5"/>
+
+  <!-- Hair -->
+  <path d="M58 72 C58 44, 75 32, 100 32 C125 32, 142 44, 142 72 C134 60, 116 52, 100 52 C84 52, 66 60, 58 72 Z" fill="#2b2825"/>
+  <path d="M56 68 C54 85, 58 92, 64 96 L64 78 Z" fill="#2b2825"/>
+  <path d="M144 68 C146 85, 142 92, 136 96 L136 78 Z" fill="#2b2825"/>
+
+  <!-- Glasses -->
+  <rect x="68" y="74" width="26" height="20" rx="5" fill="#ffffff" fill-opacity="0.2" stroke="#2b2825" stroke-width="4"/>
+  <rect x="106" y="74" width="26" height="20" rx="5" fill="#ffffff" fill-opacity="0.2" stroke="#2b2825" stroke-width="4"/>
+  <line x1="94" y1="83" x2="106" y2="83" stroke="#2b2825" stroke-width="4"/>
+  <line x1="62" y1="81" x2="68" y2="81" stroke="#2b2825" stroke-width="4"/>
+  <line x1="132" y1="81" x2="138" y2="81" stroke="#2b2825" stroke-width="4"/>
+
+  <!-- Eyes behind glasses -->
+  <circle cx="81" cy="84" r="3.5" fill="#2b2825"/>
+  <circle cx="119" cy="84" r="3.5" fill="#2b2825"/>
+
+  <!-- Eyebrows -->
+  <path d="M72 68 Q81 64 90 68" stroke="#2b2825" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M110 68 Q119 64 128 68" stroke="#2b2825" stroke-width="3" fill="none" stroke-linecap="round"/>
+
+  <!-- Nose -->
+  <path d="M98 94 L102 97 L98 99" stroke="#2b2825" stroke-width="3" fill="none" stroke-linecap="round"/>
+
+  <!-- Warm Smile -->
+  <path d="M90 106 Q100 115 110 106" stroke="#2b2825" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+
+  <!-- Cheeks Blush -->
+  <circle cx="70" cy="99" r="6" fill="#fca5a5" fill-opacity="0.6"/>
+  <circle cx="130" cy="99" r="6" fill="#fca5a5" fill-opacity="0.6"/>
+
+  <!-- Headphones -->
+  <rect x="52" y="70" width="10" height="24" rx="4" fill="#5e7ce2" stroke="#2b2825" stroke-width="4"/>
+  <rect x="138" y="70" width="10" height="24" rx="4" fill="#5e7ce2" stroke="#2b2825" stroke-width="4"/>
+  <path d="M57 70 C57 38, 143 38, 143 70" fill="none" stroke="#2b2825" stroke-width="5"/>
+</svg>

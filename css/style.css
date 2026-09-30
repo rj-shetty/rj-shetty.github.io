@@ -1,0 +1,167 @@
+/* =============================================================================
+   DESIGN TOKENS & GLOBAL RESET
+   ============================================================================= */
+
+:root {
+  /* Default Theme: Tokyo Cream (Warm Retro Paper & Cozy Accents) */
+  --bg-desktop: #f6f0ea;
+  --bg-grid: #e5dacd;
+  --bg-window: #fffdfa;
+  --bg-window-header: #383431;
+  --text-window-header: #fffdfa;
+  --text-main: #2b2724;
+  --text-muted: #6b635b;
+  --border-color: #2b2724;
+  --border-subtle: #d6cbbe;
+
+  /* Accents */
+  --accent-primary: #e0533c;    /* Warm Terracotta */
+  --accent-secondary: #4a8b5c;  /* Matcha Green */
+  --accent-tertiary: #5e7ce2;   /* Mellow Periwinkle */
+  --accent-yellow: #f4c042;     /* Warm Butter Yellow */
+  --accent-purple: #8e7cc3;     /* Muted Lavender */
+
+  /* Taskbar */
+  --bg-taskbar: #ece4d8;
+  --border-taskbar: #2b2724;
+  --bg-taskbar-tab: #fffdfa;
+  --bg-taskbar-tab-active: #dfd4c5;
+
+  /* Neobrutalist Hard Shadow */
+  --shadow-hard: 4px 4px 0px var(--border-color);
+  --shadow-hard-sm: 2px 2px 0px var(--border-color);
+  --shadow-hard-lg: 6px 6px 0px var(--border-color);
+  --shadow-hard-active: 1px 1px 0px var(--border-color);
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* Fonts */
+  --font-mono: "SF Mono", Monaco, "Courier New", Consolas, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Space Mono", "SF Mono", monospace;
+}
+
+/* Base Reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  color: var(--text-main);
+  background-color: var(--bg-desktop);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Global Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-desktop);
+  border-left: 1px solid var(--border-subtle);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-main);
+}
+
+/* Helpers */
+.hidden {
+  display: none !important;
+}
+
+.select-none {
+  user-select: none !important;
+}
+
+/* Retro Tactile Button */
+.btn-retro {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+  background: var(--bg-window);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-hard-sm);
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.15s ease;
+}
+
+.btn-retro:hover {
+  background: #f8f4ed;
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-hard);
+}
+
+.btn-retro:active {
+  transform: translate(2px, 2px);
+  box-shadow: var(--shadow-hard-active);
+}
+
+.btn-retro-accent {
+  background: var(--accent-primary);
+  color: #ffffff;
+}
+.btn-retro-accent:hover {
+  background: #cf432c;
+  color: #ffffff;
+}
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+/* Modal Overlay for Project Inspector */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+}
+
+.modal-dialog {
+  width: 100%;
+  max-width: 620px;
+  max-height: 85vh;
+  background: var(--bg-window);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-hard-lg);
+  overflow-y: auto;
+  animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popIn {
+  0% { transform: scale(0.92); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}

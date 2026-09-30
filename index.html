@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="cream">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Ranjan Shetty — Desktop OS Portfolio</title>
+  <meta name="description" content="Personal portfolio of Ranjan Shetty — Software Developer & Creative Builder. An interactive, tactile desktop OS experience.">
+  <meta name="theme-color" content="#383431">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="assets/images/byte.svg">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/themes.css">
+  <link rel="stylesheet" href="css/desktop.css">
+  <link rel="stylesheet" href="css/windows.css">
+  <link rel="stylesheet" href="css/mascot.css">
+  <link rel="stylesheet" href="css/apps.css">
+</head>
+<body>
+
+  <!-- =========================================================================
+       DESKTOP CANVAS
+       ========================================================================= -->
+  <div id="desktop-canvas" class="desktop-canvas wallpaper-grid">
+
+    <!-- TOP MENU BAR -->
+    <header class="top-menubar">
+      <div class="top-bar-left">
+        <div class="os-brand">
+          <span class="os-brand-icon">✦</span>
+          <span>RANJAN.OS</span>
+          <span style="opacity: 0.6; font-size: 11px;">v2.6</span>
+        </div>
+        <div class="status-pill">
+          <span class="status-dot"></span>
+          <span>Open for Opportunities</span>
+        </div>
+      </div>
+
+      <div class="top-bar-right">
+        <button id="sfx-toggle-btn" class="top-bar-btn" title="Toggle Sound FX">
+          <span>🔊 SFX: ON</span>
+        </button>
+        <button id="theme-toggle-btn" class="top-bar-btn" title="Cycle Themes">
+          <span>🎨 Theme</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- DESKTOP ICONS GRID -->
+    <main class="desktop-grid">
+      <!-- 1. About -->
+      <div class="desktop-icon" data-target="window-about">
+        <div class="icon-visual-box">👤</div>
+        <span class="icon-label">About.txt</span>
+      </div>
+
+      <!-- 2. Projects -->
+      <div class="desktop-icon" data-target="window-projects">
+        <div class="icon-visual-box">🚀</div>
+        <span class="icon-label">Projects</span>
+      </div>
+
+      <!-- 3. Skills -->
+      <div class="desktop-icon" data-target="window-skills">
+        <div class="icon-visual-box">🛠️</div>
+        <span class="icon-label">Skills.box</span>
+      </div>
+
+      <!-- 4. Retro Arcade Game -->
+      <div class="desktop-icon" data-target="window-arcade">
+        <div class="icon-visual-box">🕹️</div>
+        <span class="icon-label">Arcade.exe</span>
+      </div>
+
+      <!-- 5. Lo-Fi Synthesizer -->
+      <div class="desktop-icon" data-target="window-lofi">
+        <div class="icon-visual-box">🎵</div>
+        <span class="icon-label">LoFi_FM</span>
+      </div>
+
+      <!-- 6. Terminal -->
+      <div class="desktop-icon" data-target="window-terminal">
+        <div class="icon-visual-box">💻</div>
+        <span class="icon-label">Terminal</span>
+      </div>
+
+      <!-- 7. Sticky Notes -->
+      <div class="desktop-icon" data-target="window-notes">
+        <div class="icon-visual-box">📝</div>
+        <span class="icon-label">Notes.pad</span>
+      </div>
+
+      <!-- 8. Contact -->
+      <div class="desktop-icon" data-target="window-contact">
+        <div class="icon-visual-box">📬</div>
+        <span class="icon-label">Contact.msg</span>
+      </div>
+
+      <!-- 9. Settings -->
+      <div class="desktop-icon" data-target="window-settings">
+        <div class="icon-visual-box">⚙️</div>
+        <span class="icon-label">Settings</span>
+      </div>
+    </main>
+
+    <!-- =======================================================================
+         WINDOW 1: ABOUT ME
+         ======================================================================= -->
+    <section id="window-about" class="desktop-window" data-icon="👤">
+      <div class="window-titlebar">
+        <div class="window-title-left">
+          <span class="window-title-icon">👤</span>
+          <span class="window-title-text">About Ranjan.txt</span>
+        </div>
+        <div class="window-controls">
+          <button class="window-btn btn-minimize" title="Minimize">_</button>
+          <button class="window-btn btn-maximize" title="Maximize">□</button>
+          <button class="window-btn btn-close" title="Close">✕</button>
+        </div>
+      </div>
+      <div class="window-body">
+        <div class="about-hero">
+          <div class="about-avatar-wrapper">
+            <img src="assets/images/avatar.svg" alt="Ranjan Shetty Avatar" class="about-avatar-img">
+          </div>
+          <div class="about-hero-details">
+            <h2 id="about-name">Ranjan Shetty</h2>
+            <div id="about-title" class="about-hero-title">Software Developer & Creative Builder</div>
+            <div class="about-location-pill">📍 India • Remote Worldwide</div>
+          </div>
+        </div>
+
+        <div class="about-section">
+          <div class="section-label">✦ Who I Am</div>
+          <div id="about-bio-text"></div>
+        </div>
+
+        <div class="about-section">
+          <div class="section-label">✦ Guiding Principles</div>
+          <div id="about-philosophy-list" class="philosophy-grid"></div>
+        </div>
+
+        <div class="about-section">
+          <div class="section-label">✦ Education & Journey</div>
+          <div class="edu-card">
+            <div id="about-edu-degree" class="edu-degree">B.Tech in Computer Science & Engineering</div>
+            <div id="about-edu-inst" class="edu-inst">Undergraduate</div>
+            <div id="about-edu-notes" class="edu-notes"></div>
+          </div>
+        </div>
+
+        <div class="about-section">
+          <div class="section-label">✦ Quirks & Setup</div>
+          <div id="about-quirks-list" class="quirks-grid"></div>
+        </div>
+      </div>
+      <div class="window-statusbar">
+        <span>Ready • UTF-8</span>
+        <span>Ranjan Shetty Portfolio</span>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         WINDOW 2: PROJECTS
+         ======================================================================= -->
+    <section id="window-projects" class="desktop-window hidden" data-icon="🚀">
+      <div class="window-titlebar">
+        <div class="window-title-left">
+          <span class="window-title-icon">🚀</span>
+          <span class="window-title-text">Featured Projects.app</span>
+        </div>
+        <div class="window-controls">
+          <button class="window-btn btn-minimize" title="Minimize">_</button>
+          <button class="window-btn btn-maximize" title="Maximize">□</button>
+          <button class="window-btn btn-close" title="Close">✕</button>
+        </div>
+      </div>
+      <div class="window-body">
+        <div class="projects-filter-bar">
+          <button class="project-filter-btn active" data-filter="all">All (6)</button>
+          <button class="project-filter-btn" data-filter="featured">Featured ⭐</button>
+          <button class="project-filter-btn" data-filter="Full Stack">Full Stack</button>
+          <button class="project-filter-btn" data-filter="Creative Web">Creative Web</button>
+          <button class="project-filter-btn" data-filter="Productivity">Productivity</button>
+        </div>
+
+        <div id="projects-grid" class="projects-grid"></div>
+      </div>
+      <div class="window-statusbar">
+        <span>6 Projects Loaded</span>
+        <span>Click Inspect for Architecture Notes</span>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         WINDOW 3: SKILLS & TOOLBOX
+         ======================================================================= -->
+    <section id="window-skills" class="desktop-window hidden" data-icon="🛠️">
+      <div class="window-titlebar">
+        <div class="window-title-left">
+          <span class="window-title-icon">🛠️</span>
+          <span class="window-title-text">Skills & Toolkit.box</span>
+        </div>
+        <div class="window-controls">
+          <button class="window-btn btn-minimize" title="Minimize">_</button>
+          <button class="window-btn btn-maximize" title="Maximize">□</button>
+          <button class="window-btn btn-close" title="Close">✕</button>
+        </div>
+      </div>
+      <div class="window-body">
+        <!-- Frontend -->
+        <div class="skills-category-section">
+          <h3 class="skills-category-title"><span>🎨</span> Frontend & Web Interfaces</h3>
+          <div id="skills-frontend-list" class="skills-list"></div>
+        </div>
+
+        <!-- Backend -->
+        <div class="skills-category-section">
+          <h3 class="skills-category-title"><span>⚙️</span> Backend & Databases</h3>
+          <div id="skills-backend-list" class="skills-list"></div>
+        </div>
+
+        <!-- Tools -->
+        <div class="skills-category-section">
+          <h3 class="skills-category-title"><span>🧰</span> Tools & Engineering Workflow</h3>
+          <div id="skills-tools-list" class="skills-list"></div>
+        </div>
+      </div>
+      <div class="window-statusbar">
+        <span>17 Technologies</span>
+        <span>Constantly Learning & Improving</span>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         WINDOW 4: RETRO ARCADE (CYBER SNAKE)
+         ======================================================================= -->
+    <section id="window-arcade" class="desktop-window hidden" data-icon="🕹️">
+      <div class="window-titlebar">
+        <div class="window-title-left">
+          <span class="window-title-icon">🕹️</span>
+          <span class="window-title-text">Retro Arcade — Cyber Snake</span>
+        </div>
+        <div class="window-controls">
+          <button class="window-btn btn-minimize" title="Minimize">_</button>
+          <button class="window-btn btn-maximize" title="Maximize">□</button>
+          <button class="window-btn btn-close" title="Close">✕</button>
+        </div>
+      </div>
+      <div class="window-body">
+        <div class="arcade-container">
+          <div class="arcade-scoreboard">
+            <span>SCORE: <strong id="arcade-score">0</strong></span>
+            <span>HIGH: <strong id="arcade-highscore">0</strong></span>
+          </div>
+
+          <div class="arcade-canvas-wrapper">
+            <canvas id="arcade-canvas" width="320" height="320"></canvas>
+          </div>
+
+          <button id="arcade-start-btn" class="btn-retro btn-retro-accent">
+            <span>Start Game 🕹️</span>
+          </button>
+
+          <!-- Mobile D-Pad -->
+          <div class="arcade-dpad">
+            <button class="dpad-btn dpad-up" data-dir="up">▲</button>
+            <button class="dpad-btn dpad-left" data-dir="left">◀</button>
+            <button class="dpad-btn dpad-right" data-dir="right">▶</button>
+            <button class="dpad-btn dpad-down" data-dir="down">▼</button>
+          </div>
+        </div>
+      </div>
+      <div class="window-statusbar">
+        <span>Arrows / WASD to move</span>
+        <span>Web Audio Synthesized SFX</span>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         WINDOW 5: LO-FI SYNTH PLAYER
+         ======================================================================= -->
+    <section id="window-lofi" class="desktop-window hidden" data-icon="🎵">
+      <div class="window-titlebar">
+        <div class="window-title-left">
+          <span class="window-title-icon">🎵</span>
+          <span class="window-title-text">Lo-Fi Synthesizer.fm</span>
+        </div>
+        <div class="window-controls">
+          <button class="window-btn btn-minimize" title="Minimize">_</button>
+          <button class="window-btn btn-maximize" title="Maximize">□</button>
+          <button class="window-btn btn-close" title="Close">✕</button>
+        </div>
+      </div>
+      <div class="window-body">
+        <div class="lofi-container">
+          <div id="lofi-cassette" class="lofi-cassette">
+            <div class="cassette-label">CHILL VIBES • 8-BIT TAPE</div>
+            <div class="cassette-reels">
+              <div class="reel reel-left"></div>
+              <div class="reel reel-right"></div>
+            </div>
+            <div class="lofi-equalizer">
+              <div class="eq-bar"></div>
+              <div class="eq-bar"></div>
+              <div class="eq-bar"></div>
+              <div class="eq-bar"></div>
+              <div class="eq-bar"></div>
+              <div class="eq-bar"></div>
+              <div class="eq-bar"></div>
+            </div>
+          </div>
+
+          <div class="lofi-info">
+            <h3 id="lofi-track-title" class="lofi-title">Midnight Coffee</h3>
+            <p id="lofi-track-artist" class="lofi-artist">Byte & The Synths</p>
+            <span id="lofi-track-mood" class="lofi-mood">Warm & Cozy • 78 BPM</span>
+          </div>
+
+          <div class="lofi-controls">
+            <button id="lofi-prev-btn" class="btn-retro btn-sm">⏮ Prev</button>
+            <button id="lofi-play-btn" class="btn-retro btn-retro-accent">▶ Play Chill Beats</button>
+            <button id="lofi-next-btn" class="btn-retro btn-sm">Next ⏭</button>
+          </div>
+        </div>
+      </div>
+      <div class="window-statusbar">
+        <span>Real-time Web Audio Synth</span>
+        <span>Zero external audio files</span>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         WINDOW 6: INTERACTIVE TERMINAL
+         ======================================================================= -->
+    <section id="window-terminal" class="desktop-window hidden" data-icon="💻">
+      <div class="window-titlebar">
+        <div class="window-title-left">
+          <span class="window-title-icon">💻</span>
+          <span class="window-title-text">Terminal — bash</span>
+        </div>
+        <div class="window-controls">
+          <button class="window-btn btn-minimize" title="Minimize">_</button>
+          <button class="window-btn btn-maximize" title="Maximize">□</button>
+          <button class="window-btn btn-close" title="Close">✕</button>
+        </div>
+      </div>
+      <div class="window-body" style="padding: 6px;">
+        <div id="terminal-container" class="terminal-container">
+          <div id="terminal-output" class="terminal-output"></div>
+          <div class="terminal-input-row">
+            <span class="term-prompt">ranjan@portfolio:~$</span>
+            <input type="text" id="terminal-input" class="terminal-input" autocomplete="off" spellcheck="false" autofocus>
+          </div>
+        </div>
+      </div>
+      <div class="window-statusbar">
+        <span>Interactive CLI</span>
+        <span>Type 'help' for commands</span>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         WINDOW 7: STICKY NOTES CORKBOARD
+         ======================================================================= -->
+    <section id="window-notes" class="desktop-window hidden" data-icon="📝">
+      <div class="window-titlebar">
+        <div class="window-title-left">
+          <span class="window-title-icon">📝</span>
+          <span class="window-title-text">Sticky Notes Corkboard</span>
+        </div>
+        <div class="window-controls">
+          <button class="window-btn btn-minimize" title="Minimize">_</button>
+          <button class="window-btn btn-maximize" title="Maximize">□</button>
+          <button class="window-btn btn-close" title="Close">✕</button>
+        </div>
+      </div>
+      <div class="window-body">
+        <div class="notes-header-actions">
+          <p style="font-size: 13px; color: var(--text-muted);">Leave a thought or reminder! Saved in your browser.</p>
+          <button id="add-note-btn" class="btn-retro btn-retro-accent btn-sm">
+            <span>+ Add Note</span>
+          </button>
+        </div>
+        <div id="notes-grid" class="notes-grid"></div>
+      </div>
+      <div class="window-statusbar">
+        <span>Persistent LocalStorage</span>
+        <span>Click 🎨 to cycle note color</span>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         WINDOW 8: CONTACT & CONNECT
+         ======================================================================= -->
+    <section id="window-contact" class="desktop-window hidden" data-icon="📬">
+      <div class="window-titlebar">
+        <div class="window-title-left">
+          <span class="window-title-icon">📬</span>
+          <span class="window-title-text">Contact & Connect.msg</span>
+        </div>
+        <div class="window-controls">
+          <button class="window-btn btn-minimize" title="Minimize">_</button>
+          <button class="window-btn btn-maximize" title="Maximize">□</button>
+          <button class="window-btn btn-close" title="Close">✕</button>
+        </div>
+      </div>
+      <div class="window-body">
+        <div class="contact-container">
+          <div class="contact-email-box">
+            <span style="font-size: 12px; color: var(--text-muted); font-family: var(--font-mono);">Direct Mail</span>
+            <a id="contact-email-link" href="#" class="contact-email-link">ranjanshetty2005@gmail.com</a>
+            <button id="copy-email-btn" class="btn-retro btn-sm">
+              <span>📋 Copy Address</span>
+            </button>
+          </div>
+
+          <div>
+            <div class="section-label">✦ Connect on Socials</div>
+            <div id="contact-socials-grid" class="socials-chip-grid"></div>
+          </div>
+
+          <div>
+            <div class="section-label">✦ Send a Quick Note</div>
+            <form class="quick-message-form">
+              <input type="text" id="msg-subject" class="form-input" placeholder="Subject (e.g. Project inquiry / Internship opportunity)">
+              <textarea id="msg-body" class="form-textarea" placeholder="Hey Ranjan, I loved your portfolio! Let's talk about..."></textarea>
+              <button id="send-msg-btn" class="btn-retro btn-retro-accent" style="align-self: flex-start;">
+                <span>Open in Mail App ✉️</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      <div class="window-statusbar">
+        <span>Fast Response Time</span>
+        <span>Always happy to chat</span>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         WINDOW 9: SETTINGS & CUSTOMIZATION
+         ======================================================================= -->
+    <section id="window-settings" class="desktop-window hidden" data-icon="⚙️">
+      <div class="window-titlebar">
+        <div class="window-title-left">
+          <span class="window-title-icon">⚙️</span>
+          <span class="window-title-text">System Preferences.sys</span>
+        </div>
+        <div class="window-controls">
+          <button class="window-btn btn-minimize" title="Minimize">_</button>
+          <button class="window-btn btn-maximize" title="Maximize">□</button>
+          <button class="window-btn btn-close" title="Close">✕</button>
+        </div>
+      </div>
+      <div class="window-body">
+        <div class="settings-section">
+          <div class="section-label">✦ Visual Color Scheme</div>
+          <div class="theme-options-grid">
+            <button class="theme-option-btn active" data-theme="cream">
+              <div class="theme-swatch" style="background: #f6f0ea;"></div>
+              <span>Tokyo Cream</span>
+            </button>
+            <button class="theme-option-btn" data-theme="cyber">
+              <div class="theme-swatch" style="background: #0e121a; border-color: #38bdf8;"></div>
+              <span>Cyber Midnight</span>
+            </button>
+            <button class="theme-option-btn" data-theme="90s">
+              <div class="theme-swatch" style="background: #008080;"></div>
+              <span>Classic 90s OS</span>
+            </button>
+            <button class="theme-option-btn" data-theme="pastel">
+              <div class="theme-swatch" style="background: #faf5ff; border-color: #7e22ce;"></div>
+              <span>Pastel Sakura</span>
+            </button>
+            <button class="theme-option-btn" data-theme="matrix">
+              <div class="theme-swatch" style="background: #050807; border-color: #22c55e;"></div>
+              <span>Matrix Terminal</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="section-label">✦ Desktop Wallpaper</div>
+          <div class="wallpaper-options-grid">
+            <button class="wallpaper-option-btn active" data-wallpaper="grid">
+              <span>📐 Drafting Grid</span>
+            </button>
+            <button class="wallpaper-option-btn" data-wallpaper="dots">
+              <span>● Dot Matrix</span>
+            </button>
+            <button class="wallpaper-option-btn" data-wallpaper="stars">
+              <span>✨ Starry Sky</span>
+            </button>
+            <button class="wallpaper-option-btn" data-wallpaper="blueprint">
+              <span>🗺️ Blueprint</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="window-statusbar">
+        <span>Preferences saved in LocalStorage</span>
+        <span>Instant Preview</span>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         INTERACTIVE MASCOT ("BYTE")
+         ======================================================================= -->
+    <div id="mascot-container" class="mascot-container">
+      <div id="mascot-bubble" class="mascot-bubble hidden">
+        <p id="mascot-bubble-text"></p>
+      </div>
+      <div id="mascot-character" class="mascot-character" title="Click me for a squeak & thought!">
+        <img src="assets/images/byte.svg" alt="Byte the Desktop Buddy" style="width: 100%; height: 100%;">
+      </div>
+    </div>
+
+    <!-- =======================================================================
+         PROJECT DETAIL MODAL (QUICK INSPECT)
+         ======================================================================= -->
+    <div id="project-modal" class="modal-overlay hidden">
+      <div class="modal-dialog">
+        <div id="project-modal-content"></div>
+      </div>
+    </div>
+
+    <!-- =======================================================================
+         TOAST NOTIFICATION
+         ======================================================================= -->
+    <div id="toast-notification" class="toast-notification hidden"></div>
+
+    <!-- =======================================================================
+         START MENU FLYOUT
+         ======================================================================= -->
+    <div id="start-menu" class="start-menu hidden">
+      <div class="start-menu-header">
+        <div class="start-avatar-mini">✦</div>
+        <div class="start-menu-user">
+          <h4>Ranjan Shetty</h4>
+          <p>Portfolio OS v2.6</p>
+        </div>
+      </div>
+      <div class="start-menu-list">
+        <button class="start-menu-item" data-target="window-about">
+          <span>👤</span><span>About Me</span>
+        </button>
+        <button class="start-menu-item" data-target="window-projects">
+          <span>🚀</span><span>Projects</span>
+        </button>
+        <button class="start-menu-item" data-target="window-skills">
+          <span>🛠️</span><span>Skills & Tools</span>
+        </button>
+        <button class="start-menu-item" data-target="window-arcade">
+          <span>🕹️</span><span>Retro Arcade</span>
+        </button>
+        <button class="start-menu-item" data-target="window-lofi">
+          <span>🎵</span><span>Lo-Fi Music Player</span>
+        </button>
+        <button class="start-menu-item" data-target="window-terminal">
+          <span>💻</span><span>Terminal</span>
+        </button>
+        <button class="start-menu-item" data-target="window-notes">
+          <span>📝</span><span>Sticky Notes</span>
+        </button>
+        <div class="start-menu-divider"></div>
+        <button class="start-menu-item" data-target="window-contact">
+          <span>📬</span><span>Contact Ranjan</span>
+        </button>
+        <button class="start-menu-item" data-target="window-settings">
+          <span>⚙️</span><span>Preferences</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- =======================================================================
+         BOTTOM TASKBAR
+         ======================================================================= -->
+    <footer id="bottom-taskbar" class="bottom-taskbar">
+      <div class="taskbar-left">
+        <button id="start-button" class="start-button">
+          <span>✦</span>
+          <span>Start</span>
+        </button>
+        <div id="taskbar-tabs" class="taskbar-tabs"></div>
+      </div>
+
+      <div class="taskbar-right">
+        <div id="system-tray" class="system-tray">
+          <span id="taskbar-clock" class="tray-clock">12:00 PM</span>
+        </div>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/data.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/windows.js"></script>
+  <script src="js/mascot.js"></script>
+  <script src="js/arcade.js"></script>
+  <script src="js/lofi.js"></script>
+  <script src="js/terminal.js"></script>
+  <script src="js/notes.js"></script>
+  <script src="js/desktop.js"></script>
+  <script src="js/main.js"></script>
+
+</body>
+</html>
