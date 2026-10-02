@@ -1,17 +1,18 @@
 {
   "name": "ranjan-shetty-portfolio",
   "version": "2.0.0",
-  "description": "Ranjan Shetty's Interactive Desktop OS Portfolio",
+  "description": "Ranjan Shetty's interactive desktop portfolio",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "check": "node --check server.js && node --check portfolio.js && node --check js/portfolio-data.js"
   },
   "keywords": [
     "portfolio",
     "desktop-os",
     "interactive",
-    "web-audio",
+    "vanilla-javascript",
     "ranjan-shetty"
   ],
   "author": "Ranjan Shetty <ranjanshetty2005@gmail.com>",

@@ -62,8 +62,8 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`\n======================================================`);
-  console.log(`🚀 Ranjan's Desktop OS Portfolio is live!`);
+  console.log(`Ranjan's desktop portfolio is live.`);
   console.log(`🌐 Local Preview:  http://localhost:${PORT}`);
-  console.log(`📁 Customizing data: Edit js/data.js anytime!`);
+  console.log(`Customizing portfolio content: Edit js/portfolio-data.js`);
   console.log(`======================================================\n`);
 });
