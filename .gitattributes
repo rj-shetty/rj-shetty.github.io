@@ -3,6 +3,7 @@
 # Denote all files that are truly binary and should not be modified
 *.ttf binary
 *.png binary
+*.gif binary -eol
 *.webp binary
 *.woff binary
 
