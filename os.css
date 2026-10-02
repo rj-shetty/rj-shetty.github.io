@@ -9,6 +9,8 @@
   --line-strong: rgba(45, 55, 45, .22);
   --accent: #c95e43;
   --accent-rgb: 201, 94, 67;
+  --selection-bg: #a9442e;
+  --selection-ink: #fffaf2;
   --sage: #dfe8d9;
   --window: #fffdf8;
   --window-head: rgba(255, 253, 248, .95);
@@ -28,6 +30,8 @@
 }
 
 * { box-sizing: border-box; }
+::selection { color: var(--selection-ink); background: var(--selection-bg); text-shadow: none; }
+::-moz-selection { color: var(--selection-ink); background: var(--selection-bg); text-shadow: none; }
 html, body { width: 100%; height: 100%; margin: 0; }
 body { overflow: hidden; color: var(--ink); background: var(--paper); }
 body.theme-ready { transition: color .46s cubic-bezier(.2,.7,.2,1), background .46s cubic-bezier(.2,.7,.2,1); }
@@ -42,6 +46,8 @@ body.theme-dark {
   --line-strong: rgba(235, 239, 226, .2);
   --accent: #ed8868;
   --accent-rgb: 237, 136, 104;
+  --selection-bg: #ed8868;
+  --selection-ink: #252c25;
   --sage: #303b32;
   --window: #29312c;
   --window-head: rgba(41, 49, 44, .97);
