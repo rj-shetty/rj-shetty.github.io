@@ -62,7 +62,7 @@ button { -webkit-tap-highlight-color: transparent; }
 button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 [hidden] { display: none !important; }
 
-.desktop { position: relative; isolation: isolate; width: 100%; height: 100%; min-height: 520px; overflow: hidden; background: var(--paper); }
+.desktop { --dock-height: 54px; --dock-bottom: 12px; --window-edge-gap: 14px; position: relative; isolation: isolate; width: 100%; height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; background: var(--paper); }
 .theme-ready .desktop { transition: background .46s cubic-bezier(.2,.7,.2,1), color .46s cubic-bezier(.2,.7,.2,1); }
 .ambient { position: absolute; z-index: -2; inset: 0; pointer-events: none; opacity: .5; background: linear-gradient(132deg, rgba(202, 220, 188, .38), transparent 47%), linear-gradient(310deg, rgba(230, 183, 151, .25), transparent 42%); transition: opacity .46s ease; }
 .theme-dark .ambient { opacity: .18; }
@@ -89,7 +89,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outlin
 .app-shortcut:hover .shortcut-icon, .app-shortcut:focus-visible .shortcut-icon { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 12px 24px rgba(31, 34, 27, .12); }
 .shortcut-name { font-size: 10px; font-weight: 600; }
 
-.dock { position: absolute; z-index: 11; bottom: 12px; left: 50%; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; width: min(760px, calc(100% - 72px)); height: 54px; padding: 0 15px; border: 1px solid var(--line-strong); border-radius: 15px; background: linear-gradient(155deg, rgba(255, 255, 255, .09), rgba(255, 255, 255, .025) 58%, rgba(0, 0, 0, .025)), var(--dock-bg); box-shadow: 0 12px 36px rgba(18, 24, 19, .16), inset 0 1px 0 rgba(255, 255, 255, .12); -webkit-backdrop-filter: blur(24px) saturate(1.45); backdrop-filter: blur(24px) saturate(1.45); transform: translateX(-50%); transition: background .42s ease, border-color .42s ease, color .42s ease, box-shadow .42s ease; }
+.dock { position: absolute; z-index: 11; bottom: calc(var(--dock-bottom) + env(safe-area-inset-bottom)); left: 50%; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; width: min(760px, calc(100% - 72px)); height: var(--dock-height); padding: 0 15px; border: 1px solid var(--line-strong); border-radius: 15px; background: linear-gradient(155deg, rgba(255, 255, 255, .09), rgba(255, 255, 255, .025) 58%, rgba(0, 0, 0, .025)), var(--dock-bg); box-shadow: 0 12px 36px rgba(18, 24, 19, .16), inset 0 1px 0 rgba(255, 255, 255, .12); -webkit-backdrop-filter: blur(24px) saturate(1.45); backdrop-filter: blur(24px) saturate(1.45); transform: translateX(-50%); transition: background .42s ease, border-color .42s ease, color .42s ease, box-shadow .42s ease; }
 .dock-home, .dock-app { position: relative; display: grid; place-items: center; flex: 0 0 auto; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--ink); cursor: pointer; transition: transform .18s ease, background .18s, color .42s ease; }
 .dock-home { grid-column: 1; justify-self: start; display: flex; width: auto; min-width: 72px; justify-content: center; gap: 8px; padding: 0 8px; }
 .dock-home[aria-expanded="true"] { background: rgba(var(--accent-rgb), .12); color: var(--accent); }
@@ -139,9 +139,15 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outlin
 .start-menu-item .app-icon-svg { width: 17px; height: 17px; }
 .start-menu-separator { display: block; height: 1px; margin: 6px 8px; background: var(--line-strong); }
 
-.window-layer { position: absolute; z-index: 7; inset: 0; pointer-events: none; }
-.app-window { position: absolute; display: flex; width: 700px; height: 590px; min-width: 360px; min-height: 300px; flex-direction: column; overflow: hidden; border: 1px solid var(--line-strong); border-radius: var(--radius-window); background: var(--window); box-shadow: var(--window-shadow); color: var(--ink); pointer-events: auto; animation: window-in .22s ease both; transition: opacity .16s ease, box-shadow .2s ease, background .42s ease, color .42s ease, border-color .42s ease; }
-.app-window.is-maximized { inset: 10px !important; width: auto !important; height: auto !important; }
+.window-layer { position: absolute; z-index: 7; inset: 0 0 calc(var(--dock-height) + var(--dock-bottom) + var(--window-edge-gap) + env(safe-area-inset-bottom)); pointer-events: none; }
+.app-window { --window-default-width: clamp(26rem, 46vw, 40rem); --window-default-height: clamp(25rem, 64dvh, 38rem); --window-min-width: 26rem; --window-min-height: 21rem; position: absolute; display: flex; width: var(--window-default-width); height: var(--window-default-height); min-width: min(var(--window-min-width), calc(100% - 16px)); min-height: min(var(--window-min-height), calc(100% - 16px)); max-width: calc(100% - 16px); max-height: calc(100% - 16px); flex-direction: column; overflow: hidden; border: 1px solid var(--line-strong); border-radius: var(--radius-window); background: var(--window); box-shadow: var(--window-shadow); color: var(--ink); pointer-events: auto; animation: window-in .22s ease both; transition: opacity .16s ease, box-shadow .2s ease, background .42s ease, color .42s ease, border-color .42s ease; }
+.app-window[data-app="about"] { --window-default-width: clamp(32rem, 66vw, 40rem); --window-default-height: clamp(25rem, 66dvh, 38rem); --window-min-width: 26rem; --window-min-height: 21rem; }
+.app-window[data-app="projects"] { --window-default-width: clamp(34rem, 68vw, 68rem); --window-default-height: clamp(30rem, 76dvh, 50rem); --window-min-width: 32rem; --window-min-height: 26rem; }
+.app-window[data-app="toolkit"] { --window-default-width: clamp(30rem, 48vw, 44rem); --window-default-height: clamp(29rem, 70dvh, 46rem); --window-min-width: 27rem; --window-min-height: 26rem; }
+.app-window[data-app="contact"] { --window-default-width: clamp(28rem, 44vw, 40rem); --window-default-height: clamp(27rem, 68dvh, 44rem); --window-min-width: 26rem; --window-min-height: 25rem; }
+.app-window[data-app="terminal"] { --window-default-width: clamp(30rem, 52vw, 46rem); --window-default-height: clamp(28rem, 70dvh, 44rem); --window-min-width: 27rem; --window-min-height: 24rem; }
+.app-window[data-app="notes"] { --window-default-width: clamp(32rem, 57vw, 52rem); --window-default-height: clamp(30rem, 74dvh, 46rem); --window-min-width: 30rem; --window-min-height: 26rem; }
+.app-window.is-maximized { inset: 8px !important; width: auto !important; height: auto !important; min-width: 0; min-height: 0; max-width: none; max-height: none; }
 .app-window.is-closed, .app-window.is-minimized { display: none; }
 .app-window:focus { outline: none; }
 .app-window.is-focused { box-shadow: 0 30px 86px rgba(35, 38, 30, .23), 0 5px 18px rgba(35, 38, 30, .09); }
@@ -170,8 +176,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outlin
 .resize-e { top: 45px; right: 0; cursor: ew-resize; }
 .resize-w { left: 0; }
 .resize-nw, .resize-ne, .resize-se, .resize-sw { width: 18px; height: 18px; cursor: nwse-resize; }
-.resize-nw { top: 0; left: 0; width: 12px; height: 22px; }
-.resize-ne { top: 0; right: 0; width: 12px; height: 22px; cursor: nesw-resize; }
+.resize-nw { top: 44px; left: 0; width: 12px; height: 22px; }
+.resize-ne { top: 44px; right: 0; width: 12px; height: 22px; cursor: nesw-resize; }
 .resize-se { z-index: 6; right: 1px; bottom: 1px; width: 38px; height: 38px; border-radius: 0 0 12px 0; opacity: 0; }
 .resize-se::after { display: none; }
 .resize-se:hover { background: transparent; opacity: 0; }
@@ -290,13 +296,13 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outlin
 
 @media (max-width: 1050px) {
   .desktop-apps { top: 30px; left: 6vw; grid-template-columns: repeat(2, 76px); column-gap: 17px; row-gap: 18px; }
-  .app-window { width: min(700px, calc(100% - 32px)); height: min(590px, calc(100% - 32px)); }
+  .app-window { --window-min-width: 24rem; --window-min-height: 20rem; }
   .profile-hero { grid-template-columns: minmax(0, 1fr) 164px; gap: 18px; }
   .profile-artwork { width: 164px; height: 164px; }
 }
 
 @media (max-width: 760px) {
-  .desktop { min-height: 480px; }
+  .desktop { --dock-height: 48px; --dock-bottom: 8px; --window-edge-gap: 12px; }
   .workspace { inset: 0; }
   .desktop-apps { top: 22px; right: auto; bottom: auto; left: 16px; display: grid; grid-template-columns: repeat(2, 70px); justify-content: start; gap: 17px 16px; }
   .app-shortcut { width: 70px; align-items: center; }
@@ -317,14 +323,26 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outlin
   .dock-system { gap: 4px; }
   #clock-time { min-width: 43px; }
   .start-menu { bottom: 64px; left: 12px; width: min(304px, calc(100% - 24px)); max-height: calc(100vh - 84px); }
-  .app-window { inset: 0; width: auto !important; height: auto !important; min-width: 0; min-height: 0; border-radius: 13px; }
-  .window-resize-handle { display: none; }
-  .app-window.is-maximized { inset: 0 !important; }
-  .window-bar { flex-basis: 42px; height: 42px; padding: 0 9px 0 11px; }
+  .app-window { --window-default-width: clamp(20rem, 92vw, 40rem); --window-default-height: clamp(24rem, 78dvh, 42rem); --window-min-width: 18rem; --window-min-height: 20rem; border-radius: 13px; }
+  .app-window[data-app="about"] { --window-default-width: clamp(20rem, 92vw, 40rem); --window-default-height: clamp(24rem, 78dvh, 42rem); --window-min-width: 18rem; --window-min-height: 20rem; }
+  .app-window[data-app="projects"] { --window-default-width: clamp(20rem, 94vw, 44rem); --window-default-height: clamp(26rem, 82dvh, 44rem); --window-min-width: 18rem; --window-min-height: 21rem; }
+  .app-window[data-app="toolkit"] { --window-default-width: clamp(20rem, 92vw, 40rem); --window-default-height: clamp(25rem, 80dvh, 42rem); --window-min-width: 18rem; --window-min-height: 21rem; }
+  .app-window[data-app="contact"] { --window-default-width: clamp(20rem, 90vw, 38rem); --window-default-height: clamp(23rem, 74dvh, 40rem); --window-min-width: 18rem; --window-min-height: 19rem; }
+  .app-window[data-app="terminal"] { --window-default-width: clamp(20rem, 92vw, 40rem); --window-default-height: clamp(24rem, 76dvh, 40rem); --window-min-width: 18rem; --window-min-height: 20rem; }
+  .app-window[data-app="notes"] { --window-default-width: clamp(20rem, 94vw, 42rem); --window-default-height: clamp(25rem, 80dvh, 42rem); --window-min-width: 18rem; --window-min-height: 21rem; }
+  .window-bar { flex-basis: 46px; height: 46px; padding: 0 9px 0 11px; }
   .window-app-identity { min-width: 0; font-size: 8px; }
   .window-bar-center { display: none; }
-  .window-control { width: 21px; height: 21px; }
-  .window-control.maximize { display: none; }
+  .window-controls { gap: 5px; }
+  .window-control { width: 29px; height: 29px; border-radius: 8px; }
+  .resize-n, .resize-s { right: 18px; left: 18px; height: 24px; }
+  .resize-n { right: 112px; }
+  .resize-e, .resize-w { width: 24px; }
+  .resize-e, .resize-w { top: 48px; }
+  .resize-nw, .resize-ne, .resize-se, .resize-sw { width: 40px; height: 40px; }
+  .resize-nw, .resize-ne { top: 46px; }
+  .resize-se { width: 44px; height: 44px; }
+  .resize-sw { bottom: 0; left: 0; width: 40px; height: 40px; }
   .view { padding: 16px 17px 0; }
   .view-topline { font-size: 7px; }
   .profile-hero { grid-template-columns: minmax(0, 1fr) 142px; gap: 12px; padding: 22px 0 18px; }

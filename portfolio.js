@@ -11,18 +11,16 @@
   const themeMeta = document.querySelector('meta[name="theme-color"]');
   const startMenu = document.querySelector("#start-menu");
   const startToggle = document.querySelector("#start-toggle");
-  const compact = window.matchMedia("(max-width: 760px)");
   const appMeta = {
-    about: { title: "About Me", center: "A LITTLE ABOUT ME", width: 560, height: 450, minWidth: 440, minHeight: 360 },
-    projects: { title: "Projects", center: "SELECTED WORK", width: 850, height: 640 },
-    toolkit: { title: "Skills & Tools", center: "WHAT I BUILD WITH", width: 610, height: 540 },
-    contact: { title: "Contact Ranjan", center: "LET’S TALK", width: 560, height: 520 },
-    terminal: { title: "Terminal", center: "RANJAN SHELL", width: 650, height: 530 },
-    notes: { title: "Sticky Notes", center: "YOUR LITTLE CORKBOARD", width: 680, height: 570 }
+    about: { title: "About Me", center: "A LITTLE ABOUT ME" },
+    projects: { title: "Projects", center: "SELECTED WORK" },
+    toolkit: { title: "Skills & Tools", center: "WHAT I BUILD WITH" },
+    contact: { title: "Contact Ranjan", center: "LET’S TALK" },
+    terminal: { title: "Terminal", center: "RANJAN SHELL" },
+    notes: { title: "Sticky Notes", center: "YOUR LITTLE CORKBOARD" }
   };
   const apps = new Map();
   const bootRunningApps = new Set(["projects", "toolkit", "contact"]);
-  let compactMode = compact.matches;
   let topZ = 4;
   let activeRecord = null;
   let lastTrigger = null;
@@ -295,13 +293,21 @@
   }
 
   function toggleMaximize(record) {
-    if (compact.matches) return;
     playSfx("click", .12);
     const button = record.node.querySelector("[data-window-action='maximize']");
     const maximized = record.node.classList.contains("is-maximized");
     if (maximized) {
       record.node.classList.remove("is-maximized");
-      if (record.restoreBounds) applyWindowBounds(record, record.restoreBounds);
+      if (record.userResized && record.restoreBounds) applyWindowBounds(record, clampWindowBounds(record, record.restoreBounds));
+      else {
+        if (record.restoreBounds) {
+          record.node.style.left = `${record.restoreBounds.left}px`;
+          record.node.style.top = `${record.restoreBounds.top}px`;
+        }
+        record.node.style.removeProperty("width");
+        record.node.style.removeProperty("height");
+        positionWindow(record);
+      }
       record.restoreBounds = null;
     } else {
       record.restoreBounds = readWindowBounds(record.node);
@@ -313,11 +319,13 @@
   }
 
   function readWindowBounds(node) {
+    const left = parseFloat(node.style.left);
+    const top = parseFloat(node.style.top);
     return {
-      left: parseFloat(node.style.left) || 8,
-      top: parseFloat(node.style.top) || 8,
-      width: parseFloat(node.style.width) || node.offsetWidth,
-      height: parseFloat(node.style.height) || node.offsetHeight
+      left: Number.isFinite(left) ? left : node.offsetLeft || 8,
+      top: Number.isFinite(top) ? top : node.offsetTop || 8,
+      width: node.offsetWidth || parseFloat(node.style.width) || 0,
+      height: node.offsetHeight || parseFloat(node.style.height) || 0
     };
   }
 
@@ -330,15 +338,36 @@
 
   function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
 
+  function windowLimits(record, bounds = layer.getBoundingClientRect()) {
+    const style = window.getComputedStyle(record.node);
+    const maxWidth = Math.max(1, Math.min(parseFloat(style.maxWidth) || bounds.width - 16, bounds.width - 16));
+    const maxHeight = Math.max(1, Math.min(parseFloat(style.maxHeight) || bounds.height - 16, bounds.height - 16));
+    return {
+      minWidth: Math.min(parseFloat(style.minWidth) || Math.min(280, maxWidth), maxWidth),
+      minHeight: Math.min(parseFloat(style.minHeight) || Math.min(220, maxHeight), maxHeight),
+      maxWidth,
+      maxHeight
+    };
+  }
+
+  function clampWindowBounds(record, requested, bounds = layer.getBoundingClientRect()) {
+    const limits = windowLimits(record, bounds);
+    const width = clamp(requested.width, limits.minWidth, limits.maxWidth);
+    const height = clamp(requested.height, limits.minHeight, limits.maxHeight);
+    return {
+      left: clamp(requested.left, 8, Math.max(8, bounds.width - width - 8)),
+      top: clamp(requested.top, 8, Math.max(8, bounds.height - height - 8)),
+      width,
+      height
+    };
+  }
+
   function updateWindowPosition(event) {
     const { record } = drag;
     const bounds = layer.getBoundingClientRect();
-    const visibleGrip = Math.min(160, record.node.offsetWidth);
-    const minLeft = 8 - record.node.offsetWidth + visibleGrip;
-    const maxLeft = bounds.width - visibleGrip;
-    const titleHeight = record.node.querySelector(".window-bar").offsetHeight || 44;
-    const maxTop = bounds.height - titleHeight;
-    record.node.style.left = `${clamp(drag.left + event.clientX - drag.startX, minLeft, maxLeft)}px`;
+    const maxLeft = Math.max(8, bounds.width - record.node.offsetWidth - 8);
+    const maxTop = Math.max(8, bounds.height - record.node.offsetHeight - 8);
+    record.node.style.left = `${clamp(drag.left + event.clientX - drag.startX, 8, maxLeft)}px`;
     record.node.style.top = `${clamp(drag.top + event.clientY - drag.startY, 8, maxTop)}px`;
   }
 
@@ -363,57 +392,113 @@
   window.addEventListener("blur", () => finishGesture());
 
   function applyResize(record, direction, deltaX, deltaY, start) {
-    if (compact.matches || record.node.classList.contains("is-maximized")) return;
+    if (record.node.classList.contains("is-maximized")) return;
     const bounds = layer.getBoundingClientRect();
-    const minWidth = Math.min(record.meta.minWidth || 360, bounds.width - 16);
-    const minHeight = Math.min(record.meta.minHeight || 300, bounds.height - 16);
+    const limits = windowLimits(record, bounds);
     let left = start.left;
     let top = start.top;
     let width = start.width;
     let height = start.height;
 
     if (direction.includes("w")) {
-      left = clamp(start.left + deltaX, 8, start.left + start.width - minWidth);
-      width = start.left + start.width - left;
+      const right = start.left + start.width;
+      left = clamp(start.left + deltaX, 8, right - limits.minWidth);
+      width = clamp(right - left, limits.minWidth, Math.min(limits.maxWidth, bounds.width - left - 8));
+      left = right - width;
     } else if (direction.includes("e")) {
-      width = clamp(start.width + deltaX, minWidth, bounds.width - start.left - 8);
+      width = clamp(start.width + deltaX, limits.minWidth, Math.min(limits.maxWidth, bounds.width - start.left - 8));
     }
     if (direction.includes("n")) {
-      top = clamp(start.top + deltaY, 8, start.top + start.height - minHeight);
-      height = start.top + start.height - top;
+      const bottom = start.top + start.height;
+      top = clamp(start.top + deltaY, 8, bottom - limits.minHeight);
+      height = clamp(bottom - top, limits.minHeight, Math.min(limits.maxHeight, bounds.height - top - 8));
+      top = bottom - height;
     } else if (direction.includes("s")) {
-      height = clamp(start.height + deltaY, minHeight, bounds.height - start.top - 8);
+      height = clamp(start.height + deltaY, limits.minHeight, Math.min(limits.maxHeight, bounds.height - start.top - 8));
     }
-    applyWindowBounds(record, { left, top, width, height });
+    record.userResized = true;
+    applyWindowBounds(record, clampWindowBounds(record, { left, top, width, height }, bounds));
   }
 
-  function positionWindow(record) {
-    if (compact.matches || record.node.classList.contains("is-maximized")) return;
+  function positionWindow(record, viewportChanged = false) {
     const bounds = layer.getBoundingClientRect();
-    const maxWidth = bounds.width - 16;
-    const maxHeight = bounds.height - 16;
-    const minWidth = Math.min(record.meta.minWidth || 360, maxWidth);
-    const minHeight = Math.min(record.meta.minHeight || 300, maxHeight);
-    const saved = readWindowBounds(record.node);
-    const hasSavedSize = Number.isFinite(parseFloat(record.node.style.width));
-    const initialWidth = Math.min(record.meta.width, bounds.width * .86);
-    const initialHeight = Math.min(record.meta.height, bounds.height * .86);
-    const width = clamp(hasSavedSize ? saved.width : initialWidth, minWidth, maxWidth);
-    const height = clamp(hasSavedSize ? saved.height : initialHeight, minHeight, maxHeight);
+    if (bounds.width < 1 || bounds.height < 1) return;
+
+    const node = record.node;
+    const previous = record.viewportSize;
+    const saved = readWindowBounds(node);
+    const hasSavedPosition = Number.isFinite(parseFloat(node.style.left)) && Number.isFinite(parseFloat(node.style.top));
+    if (viewportChanged && previous?.width > 0 && previous?.height > 0) {
+      const scaleX = bounds.width / previous.width;
+      const scaleY = bounds.height / previous.height;
+      saved.left *= scaleX;
+      saved.top *= scaleY;
+      if (record.userResized) {
+        saved.width *= scaleX;
+        saved.height *= scaleY;
+      }
+      if (node.classList.contains("is-maximized") && record.restoreBounds) {
+        record.restoreBounds.left *= scaleX;
+        record.restoreBounds.top *= scaleY;
+        if (record.userResized) {
+          record.restoreBounds.width *= scaleX;
+          record.restoreBounds.height *= scaleY;
+        }
+      }
+    }
+
+    if (node.classList.contains("is-maximized")) {
+      record.viewportSize = { width: bounds.width, height: bounds.height };
+      return;
+    }
+
+    if (!record.userResized) {
+      node.style.removeProperty("width");
+      node.style.removeProperty("height");
+    }
+
+    const natural = readWindowBounds(node);
+    const width = record.userResized ? saved.width : natural.width;
+    const height = record.userResized ? saved.height : natural.height;
     const openCount = [...apps.values()].filter((item) => item !== record && !item.node.classList.contains("is-closed") && !item.node.classList.contains("is-minimized")).length;
-    const cascadeOffset = openCount === 0 ? 0 : Math.ceil(openCount / 2) * 28 * (openCount % 2 ? 1 : -1);
-    const defaultLeft = bounds.width / 2 - width / 2 + cascadeOffset;
-    const defaultTop = bounds.height / 2 - height / 2 + cascadeOffset * .7;
-    const visibleGrip = Math.min(160, width);
-    const minLeft = 8 - width + visibleGrip;
-    const maxLeft = bounds.width - visibleGrip;
-    const titleHeight = record.node.querySelector(".window-bar").offsetHeight || 44;
-    const hasSavedLeft = Number.isFinite(parseFloat(record.node.style.left));
-    const left = hasSavedLeft
-      ? clamp(saved.left, minLeft, maxLeft)
-      : clamp(defaultLeft, 8, bounds.width - width - 8);
-    const top = clamp(Number.isFinite(parseFloat(record.node.style.top)) ? saved.top : defaultTop, 8, bounds.height - titleHeight);
-    applyWindowBounds(record, { width, height, left, top });
+    const step = clamp(Math.min(bounds.width, bounds.height) * .035, 12, 28);
+    let defaultLeft = (bounds.width - width) / 2 + step * openCount;
+    let defaultTop = (bounds.height - height) / 2 + step * openCount * .65;
+    if (!hasSavedPosition) {
+      const shortcuts = desktop.querySelector(".desktop-apps");
+      if (shortcuts) {
+        const iconsRect = shortcuts.getBoundingClientRect();
+        const layerRect = layer.getBoundingClientRect();
+        const icons = {
+          left: iconsRect.left - layerRect.left,
+          right: iconsRect.right - layerRect.left,
+          top: iconsRect.top - layerRect.top,
+          bottom: iconsRect.bottom - layerRect.top
+        };
+        const intersectsIcons = defaultLeft < icons.right && defaultLeft + width > icons.left
+          && defaultTop < icons.bottom && defaultTop + height > icons.top;
+        if (intersectsIcons) {
+          const rightSide = icons.right + 16 + step * openCount;
+          const belowIcons = icons.bottom + 16;
+          if (rightSide + width <= bounds.width - 8) defaultLeft = Math.max(defaultLeft, rightSide);
+          else if (belowIcons + height <= bounds.height - 8) defaultTop = belowIcons;
+        }
+      }
+    }
+    const candidate = clampWindowBounds(record, {
+      left: hasSavedPosition ? saved.left : defaultLeft,
+      top: hasSavedPosition ? saved.top : defaultTop,
+      width,
+      height
+    }, bounds);
+
+    node.style.left = `${candidate.left}px`;
+    node.style.top = `${candidate.top}px`;
+    if (record.userResized) {
+      node.style.width = `${candidate.width}px`;
+      node.style.height = `${candidate.height}px`;
+    }
+    record.viewportSize = { width: bounds.width, height: bounds.height };
   }
 
   function openApp(id, trigger) {
@@ -436,7 +521,7 @@
       node.querySelector(".window-bar-center").textContent = meta.center;
       node.querySelector(".window-content").append(appTemplate.content.cloneNode(true));
       layer.append(node);
-      record = { id, meta, node };
+      record = { id, meta, node, userResized: false, viewportSize: null, needsViewportLayout: false };
       apps.set(id, record);
       createDockButton(record.id, record.meta);
       renderWindow(record);
@@ -454,7 +539,7 @@
           event.preventDefault();
           return;
         }
-        if (event.button !== 0 || compact.matches || event.target.closest("button") || record.node.classList.contains("is-maximized")) return;
+        if (event.button !== 0 || event.isPrimary === false || event.target.closest("button") || record.node.classList.contains("is-maximized")) return;
         event.preventDefault();
         focusRecord(record);
         drag = { kind: "move", record, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, left: parseFloat(node.style.left), top: parseFloat(node.style.top), captureTarget: bar };
@@ -475,7 +560,7 @@
       node.querySelectorAll("[data-resize]").forEach((handle) => {
         const direction = handle.dataset.resize;
         handle.addEventListener("pointerdown", (event) => {
-          if (event.button !== 0 || compact.matches || node.classList.contains("is-maximized")) return;
+          if (event.button !== 0 || event.isPrimary === false || node.classList.contains("is-maximized")) return;
           event.preventDefault();
           event.stopPropagation();
           focusRecord(record);
@@ -495,7 +580,8 @@
       positionWindow(record);
     } else {
       record.node.classList.remove("is-closed", "is-minimized");
-      positionWindow(record);
+      positionWindow(record, record.needsViewportLayout);
+      record.needsViewportLayout = false;
     }
     focusRecord(record);
     if (record.id === "terminal") record.node.querySelector("[data-terminal-input]")?.focus({ preventScroll: true });
@@ -825,41 +911,21 @@
     }
     if (activeRecord) close(activeRecord);
   });
-  window.addEventListener("resize", () => {
-    const nextCompactMode = compact.matches;
-    if (nextCompactMode !== compactMode) {
-      if (nextCompactMode) {
-        apps.forEach((record) => {
-          record.wasDesktopMaximized = record.node.classList.contains("is-maximized");
-          record.desktopBounds = record.wasDesktopMaximized && record.restoreBounds
-            ? { ...record.restoreBounds }
-            : readWindowBounds(record.node);
-          record.node.classList.remove("is-maximized");
-          const maximizeButton = record.node.querySelector("[data-window-action='maximize']");
-          maximizeButton.setAttribute("aria-label", "Maximize");
-          maximizeButton.setAttribute("aria-pressed", "false");
-          ["left", "top", "width", "height"].forEach((property) => record.node.style.removeProperty(property));
-        });
-      } else {
-        apps.forEach((record) => {
-          if (record.desktopBounds) applyWindowBounds(record, record.desktopBounds);
-          positionWindow(record);
-          if (record.wasDesktopMaximized) {
-            record.restoreBounds = readWindowBounds(record.node);
-            record.node.classList.add("is-maximized");
-            const maximizeButton = record.node.querySelector("[data-window-action='maximize']");
-            maximizeButton.setAttribute("aria-label", "Restore window size");
-            maximizeButton.setAttribute("aria-pressed", "true");
-          }
-          record.wasDesktopMaximized = false;
-          record.desktopBounds = null;
-        });
-      }
-      compactMode = nextCompactMode;
-    } else if (!nextCompactMode) {
-      apps.forEach(positionWindow);
-    }
-  });
+  let viewportLayoutFrame = 0;
+  function scheduleViewportLayout() {
+    if (drag) finishGesture();
+    if (viewportLayoutFrame) return;
+    viewportLayoutFrame = window.requestAnimationFrame(() => {
+      viewportLayoutFrame = 0;
+      apps.forEach((record) => {
+        const hidden = record.node.classList.contains("is-closed") || record.node.classList.contains("is-minimized");
+        if (hidden) record.needsViewportLayout = true;
+        else positionWindow(record, true);
+      });
+    });
+  }
+  window.addEventListener("resize", scheduleViewportLayout);
+  window.visualViewport?.addEventListener("resize", scheduleViewportLayout);
 
   function updateClock() {
     document.querySelector("#clock-time").textContent = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date());
