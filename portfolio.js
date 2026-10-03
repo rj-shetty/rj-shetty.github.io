@@ -12,12 +12,12 @@
   const startMenu = document.querySelector("#start-menu");
   const startToggle = document.querySelector("#start-toggle");
   const appMeta = {
-    about: { title: "About Me", center: "A LITTLE ABOUT ME" },
-    projects: { title: "Projects", center: "SELECTED WORK" },
-    toolkit: { title: "Skills & Tools", center: "WHAT I BUILD WITH" },
-    contact: { title: "Contact Ranjan", center: "LET’S TALK" },
-    terminal: { title: "Terminal", center: "RANJAN SHELL" },
-    notes: { title: "Sticky Notes", center: "YOUR LITTLE CORKBOARD" }
+    about: { title: "About Me", center: "" },
+    projects: { title: "Projects", center: "" },
+    toolkit: { title: "Skills & Tools", center: "" },
+    contact: { title: "Contact Ranjan", center: "" },
+    terminal: { title: "Terminal", center: "" },
+    notes: { title: "Sticky Notes", center: "" }
   };
   const apps = new Map();
   const bootRunningApps = new Set(["projects", "toolkit", "contact"]);
@@ -25,9 +25,12 @@
   let activeRecord = null;
   let lastTrigger = null;
   let drag = null;
+  const WINDOW_SNAP_EDGE = 10;
+  const WINDOW_DRAG_THRESHOLD = 8;
   let dockDrag = null;
   let suppressDockClick = false;
   let sfxOn = true;
+  let startupOpenSoundPending = false;
   let sfxAudioContext = null;
   const sfxPatterns = {
     click: [{ frequency: 980, endFrequency: 760, delay: 0, duration: .045, level: .42 }],
@@ -108,6 +111,19 @@
   }
 
   sfxButton.addEventListener("click", () => updateSfxButton(!sfxOn));
+  function playPendingStartupOpenSound(event) {
+    if (!startupOpenSoundPending) return;
+    if (!sfxOn) { startupOpenSoundPending = false; return; }
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest("button, a, input, textarea, .window-bar, .window-resize-handle")) {
+      startupOpenSoundPending = false;
+      return;
+    }
+    startupOpenSoundPending = false;
+    playSfx("open", .15);
+  }
+  document.addEventListener("pointerdown", playPendingStartupOpenSound, true);
+  document.addEventListener("keydown", playPendingStartupOpenSound, true);
 
 
   function setTheme(isDark, persist = true) {
@@ -259,63 +275,59 @@
   }
 
   function focusMostRecent() {
-    const visible = [...apps.values()].filter((record) => !record.node.classList.contains("is-closed") && !record.node.classList.contains("is-minimized"));
-    const next = visible.sort((a, b) => Number(b.node.style.zIndex) - Number(a.node.style.zIndex))[0];
-    if (next) {
-      focusRecord(next);
-      next.node.focus({ preventScroll: true });
-      return;
-    }
     activeRecord = null;
-    layer.hidden = true;
-    updateDock();
-    if (lastTrigger?.isConnected) lastTrigger.focus({ preventScroll: true });
+    arrangeWindows();
+    if (activeRecord) activeRecord.node.focus({ preventScroll: true });
+    else if (lastTrigger?.isConnected) lastTrigger.focus({ preventScroll: true });
   }
-
   function close(record) {
     playSfx("close", .16);
     record.cleanup?.();
     record.node.classList.add("is-closed");
-    record.node.classList.remove("is-minimized", "is-maximized");
+    record.node.classList.remove("is-minimized", "is-maximized", "is-arranged");
     record.wasDesktopMaximized = false;
     record.desktopBounds = null;
     record.restoreBounds = null;
+    record.userMinimized = false;
+    record.autoMinimized = false;
     record.node.querySelector("[data-window-action='maximize']")?.setAttribute("aria-label", "Maximize");
     record.node.querySelector("[data-window-action='maximize']")?.setAttribute("aria-pressed", "false");
     focusMostRecent();
   }
-
   function minimize(record) {
     playSfx("close", .11);
     record.pause?.();
+    record.userMinimized = true;
+    record.autoMinimized = false;
     record.node.classList.add("is-minimized");
     focusMostRecent();
   }
-
   function toggleMaximize(record) {
     playSfx("click", .12);
     const button = record.node.querySelector("[data-window-action='maximize']");
     const maximized = record.node.classList.contains("is-maximized");
+    let restoredBounds = null;
     if (maximized) {
       record.node.classList.remove("is-maximized");
-      if (record.userResized && record.restoreBounds) applyWindowBounds(record, clampWindowBounds(record, record.restoreBounds));
-      else {
-        if (record.restoreBounds) {
-          record.node.style.left = `${record.restoreBounds.left}px`;
-          record.node.style.top = `${record.restoreBounds.top}px`;
-        }
-        record.node.style.removeProperty("width");
-        record.node.style.removeProperty("height");
-        positionWindow(record);
-      }
+      const savedBounds = record.restoreBounds ? { ...record.restoreBounds } : readWindowBounds(record.node);
+      restoredBounds = fitWindowSize(record, savedBounds);
       record.restoreBounds = null;
+      record.userMoved = true;
+      record.userBounds = restoredBounds;
+      applyWindowBounds(record, restoredBounds);
     } else {
-      record.restoreBounds = readWindowBounds(record.node);
+      record.restoreBounds = { ...readWindowBounds(record.node) };
       record.node.classList.add("is-maximized");
     }
     const isMaximized = !maximized;
     button.setAttribute("aria-label", isMaximized ? "Restore window size" : "Maximize");
     button.setAttribute("aria-pressed", String(isMaximized));
+    arrangeWindows();
+    if (maximized && restoredBounds) {
+      record.node.classList.remove("is-arranged");
+      record.userBounds = fitWindowSize(record, restoredBounds);
+      applyWindowBounds(record, record.userBounds);
+    }
   }
 
   function readWindowBounds(node) {
@@ -361,31 +373,84 @@
       height
     };
   }
+  function fitWindowSize(record, requested, bounds = layer.getBoundingClientRect()) {
+    const limits = windowLimits(record, bounds);
+    return {
+      left: requested.left,
+      top: Math.max(0, requested.top),
+      width: clamp(requested.width, limits.minWidth, limits.maxWidth),
+      height: clamp(requested.height, limits.minHeight, limits.maxHeight)
+    };
+  }
 
   function updateWindowPosition(event) {
     const { record } = drag;
-    const bounds = layer.getBoundingClientRect();
-    const maxLeft = Math.max(8, bounds.width - record.node.offsetWidth - 8);
-    const maxTop = Math.max(8, bounds.height - record.node.offsetHeight - 8);
-    record.node.style.left = `${clamp(drag.left + event.clientX - drag.startX, 8, maxLeft)}px`;
-    record.node.style.top = `${clamp(drag.top + event.clientY - drag.startY, 8, maxTop)}px`;
+    const nextTop = drag.top + event.clientY - drag.startY;
+    record.userMoved = true;
+    record.node.style.left = `${drag.left + event.clientX - drag.startX}px`;
+    record.node.style.top = `${Math.max(0, nextTop)}px`;
   }
 
   document.addEventListener("pointermove", (event) => {
     if (!drag || drag.pointerId !== event.pointerId) return;
     event.preventDefault();
-    if (drag.kind === "move") updateWindowPosition(event);
-    else applyResize(drag.record, drag.direction, event.clientX - drag.startX, event.clientY - drag.startY, drag.start);
+    if (drag.kind === "move") {
+      if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) >= WINDOW_DRAG_THRESHOLD) drag.moved = true;
+      if (drag.wasMaximized) restoreMaximizedDrag(event);
+      if (!drag.wasMaximized && drag.moved) updateWindowPosition(event);
+    } else applyResize(drag.record, drag.direction, event.clientX - drag.startX, event.clientY - drag.startY, drag.start);
   });
 
+  function restoreMaximizedDrag(event) {
+    if (!drag?.wasMaximized) return;
+    if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < WINDOW_DRAG_THRESHOLD) return;
+
+    const gesture = drag;
+    const record = gesture.record;
+    const layerBounds = layer.getBoundingClientRect();
+    const grabX = clamp((gesture.startX - gesture.maximizedRect.left) / Math.max(1, gesture.maximizedRect.width), 0, 1);
+    const grabY = clamp(gesture.startY - gesture.maximizedRect.top, 0, 44);
+    record.node.classList.add("is-moving");
+    toggleMaximize(record);
+
+    const restored = readWindowBounds(record.node);
+    const bounds = {
+      ...restored,
+      left: event.clientX - layerBounds.left - restored.width * grabX,
+      top: Math.max(0, event.clientY - layerBounds.top - grabY)
+    };
+    applyWindowBounds(record, bounds);
+    record.userMoved = true;
+    record.userBounds = bounds;
+    gesture.left = bounds.left;
+    gesture.top = bounds.top;
+    gesture.startX = event.clientX;
+    gesture.startY = event.clientY;
+    gesture.wasMaximized = false;
+  }
   function finishGesture(event) {
     if (!drag || (event && drag.pointerId !== event.pointerId)) return;
     const gesture = drag;
+    if (gesture.kind === "move" && event?.type === "pointerup") {
+      if (Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY) >= WINDOW_DRAG_THRESHOLD) gesture.moved = true;
+      if (gesture.wasMaximized) restoreMaximizedDrag(event);
+      if (!gesture.wasMaximized && gesture.moved) updateWindowPosition(event);
+    }
+    const snapToTop = gesture.kind === "move"
+      && gesture.moved
+      && !gesture.wasMaximized
+      && event?.type === "pointerup"
+      && readWindowBounds(gesture.record.node).top <= WINDOW_SNAP_EDGE;
     gesture.record.node.classList.remove("is-moving", "is-resizing");
+    if ((gesture.kind === "move" || gesture.kind === "resize") && !gesture.wasMaximized) {
+      gesture.record.userBounds = readWindowBounds(gesture.record.node);
+      gesture.record.userMoved = true;
+    }
     drag = null;
     if (gesture.captureTarget?.hasPointerCapture(gesture.pointerId)) {
       try { gesture.captureTarget.releasePointerCapture(gesture.pointerId); } catch { /* The pointer may already have left the document. */ }
     }
+    if (snapToTop && !gesture.record.node.classList.contains("is-maximized")) toggleMaximize(gesture.record);
   }
   document.addEventListener("pointerup", finishGesture);
   document.addEventListener("pointercancel", finishGesture);
@@ -417,7 +482,9 @@
       height = clamp(start.height + deltaY, limits.minHeight, Math.min(limits.maxHeight, bounds.height - start.top - 8));
     }
     record.userResized = true;
-    applyWindowBounds(record, clampWindowBounds(record, { left, top, width, height }, bounds));
+    record.userMoved = true;
+    record.userBounds = clampWindowBounds(record, { left, top, width, height }, bounds);
+    applyWindowBounds(record, record.userBounds);
   }
 
   function positionWindow(record, viewportChanged = false) {
@@ -485,12 +552,15 @@
         }
       }
     }
-    const candidate = clampWindowBounds(record, {
+    const requested = {
       left: hasSavedPosition ? saved.left : defaultLeft,
       top: hasSavedPosition ? saved.top : defaultTop,
       width,
       height
-    }, bounds);
+    };
+    const candidate = hasSavedPosition && record.userMoved
+      ? fitWindowSize(record, requested, bounds)
+      : clampWindowBounds(record, requested, bounds);
 
     node.style.left = `${candidate.left}px`;
     node.style.top = `${candidate.top}px`;
@@ -501,6 +571,93 @@
     record.viewportSize = { width: bounds.width, height: bounds.height };
   }
 
+  const WINDOW_GRID = { gap: 12, minWidth: 320, minHeight: 320, aspect: 1.35 };
+
+  function arrangeWindows(viewportChanged = false) {
+    const bounds = layer.getBoundingClientRect();
+    if (bounds.width < 1 || bounds.height < 1) return;
+    const opened = [...apps.values()].filter((r) => !r.node.classList.contains("is-closed"));
+    opened.forEach((r) => {
+      if (r.autoMinimized) { r.node.classList.remove("is-minimized"); r.autoMinimized = false; }
+      const old = r.viewportSize;
+      if (viewportChanged && old?.width && old?.height) {
+        const sx = bounds.width / old.width, sy = bounds.height / old.height;
+        if (r.userBounds) {
+          r.userBounds.left *= sx; r.userBounds.top *= sy;
+          if (r.userResized) { r.userBounds.width *= sx; r.userBounds.height *= sy; }
+          r.userBounds = r.userMoved
+            ? fitWindowSize(r, r.userBounds, bounds)
+            : clampWindowBounds(r, r.userBounds, bounds);
+        }
+        if (r.restoreBounds) {
+          r.restoreBounds.left *= sx; r.restoreBounds.top *= sy;
+          if (r.userResized) { r.restoreBounds.width *= sx; r.restoreBounds.height *= sy; }
+        }
+      }
+    });
+    let candidates = opened.filter((r) => !r.userMinimized);
+    const maxed = candidates.filter((r) => r.node.classList.contains("is-maximized"));
+    if (maxed.length) candidates = [maxed.sort((a,b) => Number(b.node.style.zIndex)-Number(a.node.style.zIndex))[0]];
+    const w = Math.max(1,bounds.width-16), h = Math.max(1,bounds.height-16);
+    const maxCols = Math.max(1,Math.floor((w+12)/(WINDOW_GRID.minWidth+12)));
+    const compact = bounds.width <= 760 || bounds.height <= 380;
+    const maxRows = Math.max(1,Math.floor((h+12)/(WINDOW_GRID.minHeight+12)));
+    const capacity = maxed.length || compact ? 1 : maxCols*maxRows;
+    candidates.sort((a,b) => a===activeRecord ? -1 : b===activeRecord ? 1 : Number(b.node.style.zIndex)-Number(a.node.style.zIndex));
+    const visible = candidates.slice(0,capacity), chosen = new Set(visible);
+    opened.forEach((r) => {
+      if (!chosen.has(r) && !r.userMinimized) {
+        r.pause?.(); r.autoMinimized = true; r.node.classList.add("is-minimized"); r.node.classList.remove("is-focused");
+      } else if (chosen.has(r)) { r.autoMinimized = false; r.node.classList.remove("is-minimized"); }
+      r.viewportSize = { width: bounds.width, height: bounds.height };
+    });
+    if (activeRecord && !chosen.has(activeRecord)) activeRecord = null;
+    if (!activeRecord && visible.length) activeRecord = visible.slice().sort((a,b) => Number(b.node.style.zIndex)-Number(a.node.style.zIndex))[0];
+    apps.forEach((r) => r.node.classList.toggle("is-focused",r===activeRecord && chosen.has(r)));
+    if (!visible.length) { activeRecord=null; layer.hidden=true; updateDock(); return; }
+    layer.hidden=false;
+
+    if (visible.length===1) {
+      const r=visible[0], n=r.node, wasTiled=n.classList.contains("is-arranged");
+      n.classList.remove("is-arranged");
+      if (r.userBounds && (r.userMoved || r.userResized)) {
+        if (!r.userResized) { n.style.removeProperty("width"); n.style.removeProperty("height"); r.userBounds.width=n.offsetWidth; r.userBounds.height=n.offsetHeight; }
+        r.userBounds=r.userMoved ? fitWindowSize(r,r.userBounds,bounds) : clampWindowBounds(r,r.userBounds,bounds);
+        applyWindowBounds(r,r.userBounds);
+      } else {
+        n.style.removeProperty("width"); n.style.removeProperty("height");
+        if (wasTiled || viewportChanged) { n.style.removeProperty("left"); n.style.removeProperty("top"); positionWindow(r,false); }
+      }
+      r.needsViewportLayout=false; updateDock(); return;
+    }
+
+    let cols=1, rows=visible.length, best=-1;
+    for (let c=1;c<=Math.min(maxCols,visible.length);c++) {
+      const rr=Math.ceil(visible.length/c); if(rr>maxRows) continue;
+      const cw=(w-12*(c-1))/c, ch=(h-12*(rr-1))/rr;
+      const score=cw*ch/(1+Math.abs(Math.log((cw/ch)/WINDOW_GRID.aspect))*.7);
+      if(score>best){best=score;cols=c;rows=rr;}
+    }
+    const cw=(w-12*(cols-1))/cols, ch=(h-12*(rows-1))/rows;
+    const order=visible.slice().sort((a,b)=>Number(a.node.style.zIndex)-Number(b.node.style.zIndex));
+    order.forEach((r,i)=>{
+      const n=r.node; n.classList.remove("is-arranged","is-maximized");
+      if(r.userResized && r.userBounds){n.style.width=r.userBounds.width+"px";n.style.height=r.userBounds.height+"px";}
+      else{n.style.removeProperty("width");n.style.removeProperty("height");}
+      const natural=readWindowBounds(n);
+      const bw=r.userResized&&r.userBounds?r.userBounds.width:natural.width;
+      const bh=r.userResized&&r.userBounds?r.userBounds.height:natural.height;
+      const scale=Math.min(1,cw/Math.max(bw,1),ch/Math.max(bh,1));
+      const ww=Math.max(1,bw*scale), wh=Math.max(1,bh*scale);
+      const row=Math.floor(i/cols), start=row*cols, count=Math.min(cols,order.length-start);
+      const rw=count*cw+(count-1)*12;
+      n.classList.add("is-arranged");
+      n.style.left=((bounds.width-rw)/2+(i-start)*(cw+12)+(cw-ww)/2)+"px";
+      n.style.top=((bounds.height-rows*ch-(rows-1)*12)/2+row*(ch+12)+(ch-wh)/2)+"px";
+      n.style.width=ww+"px"; n.style.height=wh+"px"; r.needsViewportLayout=false;
+    });
+    updateDock();
+  }
   function openApp(id, trigger) {
     const meta = appMeta[id];
     if (!meta) return;
@@ -521,7 +678,7 @@
       node.querySelector(".window-bar-center").textContent = meta.center;
       node.querySelector(".window-content").append(appTemplate.content.cloneNode(true));
       layer.append(node);
-      record = { id, meta, node, userResized: false, viewportSize: null, needsViewportLayout: false };
+      record = { id, meta, node, userResized: false, userMoved: false, userMinimized: false, autoMinimized: false, userBounds: null, viewportSize: null, needsViewportLayout: false };
       apps.set(id, record);
       createDockButton(record.id, record.meta);
       renderWindow(record);
@@ -539,12 +696,14 @@
           event.preventDefault();
           return;
         }
-        if (event.button !== 0 || event.isPrimary === false || event.target.closest("button") || record.node.classList.contains("is-maximized")) return;
+        if (event.button !== 0 || event.isPrimary === false || event.target.closest("button")) return;
         event.preventDefault();
         focusRecord(record);
-        drag = { kind: "move", record, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, left: parseFloat(node.style.left), top: parseFloat(node.style.top), captureTarget: bar };
+        const wasMaximized = node.classList.contains("is-maximized");
+        const maximizedRect = wasMaximized ? node.getBoundingClientRect() : null;
+        drag = { kind: "move", record, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, left: parseFloat(node.style.left), top: parseFloat(node.style.top), wasMaximized, maximizedRect, moved: false, captureTarget: bar };
         try { bar.setPointerCapture(event.pointerId); } catch { /* Continue with document-level pointer tracking. */ }
-        node.classList.add("is-moving");
+        if (!wasMaximized) node.classList.add("is-moving");
       });
       bar.addEventListener("auxclick", (event) => {
         if (event.button !== 1) return;
@@ -579,14 +738,18 @@
       });
       positionWindow(record);
     } else {
-      record.node.classList.remove("is-closed", "is-minimized");
-      positionWindow(record, record.needsViewportLayout);
-      record.needsViewportLayout = false;
+      record.node.classList.remove("is-closed", "is-minimized", "is-arranged");
+      record.userMinimized = false;
+      record.autoMinimized = false;
+      if (!(record.userBounds && (record.userMoved || record.userResized))) positionWindow(record, record.needsViewportLayout);
     }
     focusRecord(record);
+    arrangeWindows(record.needsViewportLayout);
+    record.needsViewportLayout = false;
     if (record.id === "terminal") record.node.querySelector("[data-terminal-input]")?.focus({ preventScroll: true });
     else record.node.focus({ preventScroll: true });
-    playSfx(needsOpenSound ? "open" : "click", needsOpenSound ? .15 : .1);
+    if (!trigger && record.id === "about" && needsOpenSound) startupOpenSoundPending = true;
+    else playSfx(needsOpenSound ? "open" : "click", needsOpenSound ? .15 : .1);
   }
 
   function renderWindow(record) {
@@ -596,17 +759,13 @@
       content.querySelector(".education-value").textContent = `${data.profile.education} · ${data.profile.educationDates}`;
     }
     if (record.id === "projects") {
-      const githubProfile = data.socials.find((social) => social.name === "GitHub")?.url;
-      content.querySelector(".github-link").href = githubProfile || "https://github.com";
-      content.querySelector(".project-count-value").textContent = String(data.projects.length).padStart(2, "0");
-      content.querySelector(".project-list").classList.toggle("is-single", data.projects.length === 1);
       content.querySelector(".project-list").innerHTML = data.projects.map((project) => {
         const projectLinks = [
-          { label: "Live project", url: project.demoUrl },
-          { label: "Source code", url: project.githubUrl && project.githubUrl !== githubProfile ? project.githubUrl : null }
+          { label: "Live demo", url: project.demoUrl },
+          { label: "Source code", url: project.githubUrl }
         ].filter((link) => link.url);
         const highlights = (project.highlights || []).slice(0, 3);
-        return `<article class="project-entry"><div class="project-card-top"><span class="project-badge">${escapeHTML(project.badge || "Project")}</span><span class="project-category">${escapeHTML(project.category)}</span></div><div class="project-summary"><h3>${escapeHTML(project.name)}</h3><p class="project-tagline">${escapeHTML(project.tagline)}</p><p class="project-description">${escapeHTML(project.description)}</p></div>${highlights.length ? `<ul class="project-highlights">${highlights.map((highlight) => `<li>${escapeHTML(highlight)}</li>`).join("")}</ul>` : ""}<div class="project-tech">${project.tech.map((technology) => `<span>${escapeHTML(technology)}</span>`).join("")}</div><div class="project-actions">${projectLinks.map((link) => `<a href="${escapeAttribute(link.url)}" target="_blank" rel="noopener noreferrer">${link.label} ↗</a>`).join("")}</div></article>`;
+        return '<article class="project-entry"><span class="project-category">' + escapeHTML(project.category || "Project") + '</span><div class="project-summary"><h3>' + escapeHTML(project.name) + '</h3><p class="project-tagline">' + escapeHTML(project.tagline) + '</p><p class="project-description">' + escapeHTML(project.description) + '</p></div>' + (highlights.length ? '<ul class="project-highlights">' + highlights.map((highlight) => '<li>' + escapeHTML(highlight) + '</li>').join("") + '</ul>' : '') + '<div class="project-tech">' + project.tech.map((technology) => '<span>' + escapeHTML(technology) + '</span>').join("") + '</div><div class="project-actions">' + projectLinks.map((link) => '<a href="' + escapeAttribute(link.url) + '" target="_blank" rel="noopener noreferrer">' + link.label + ' <span aria-hidden="true">↗</span></a>').join("") + '</div></article>';
       }).join("");
     }
     if (record.id === "toolkit") {
@@ -784,15 +943,15 @@
     function save() {
       try {
         localStorage.setItem("ranjan-os-notes", JSON.stringify(notes));
-        statusLabel.textContent = "SAVED ON THIS DEVICE";
+        statusLabel.textContent = "Saved locally";
         statusLabel.dataset.saveState = "saved";
       } catch {
-        statusLabel.textContent = "STORAGE UNAVAILABLE";
+        statusLabel.textContent = "Could not save notes";
         statusLabel.dataset.saveState = "error";
       }
     }
     function syncCount() {
-      countLabel.textContent = `${notes.length} / 40 notes`;
+      countLabel.textContent = `${notes.length} of 40 notes`;
       addButton.disabled = notes.length >= 40;
       addButton.title = addButton.disabled ? "The board is full" : "Add a note";
     }
@@ -808,7 +967,7 @@
       if (!notes.length) {
         const empty = document.createElement("p");
         empty.className = "notes-empty";
-        empty.textContent = "Your board is clear. Add a note whenever an idea shows up.";
+        empty.textContent = "No notes yet. Add one to save an idea.";
         board.append(empty);
         return;
       }
@@ -819,8 +978,6 @@
         card.className = `sticky-note note-${color}`;
         const head = document.createElement("div");
         head.className = "sticky-note-head";
-        const label = document.createElement("span");
-        label.textContent = `NOTE ${String(index + 1).padStart(2, "0")}`;
         const tools = document.createElement("div");
         tools.className = "sticky-note-tools";
         const colorButton = document.createElement("button");
@@ -850,7 +1007,7 @@
           render();
         });
         tools.append(colorButton, deleteButton);
-        head.append(label, tools);
+        head.append(tools);
         const textarea = document.createElement("textarea");
         textarea.placeholder = "Write a thought…";
         textarea.value = note.text;
@@ -917,24 +1074,44 @@
     if (viewportLayoutFrame) return;
     viewportLayoutFrame = window.requestAnimationFrame(() => {
       viewportLayoutFrame = 0;
-      apps.forEach((record) => {
-        const hidden = record.node.classList.contains("is-closed") || record.node.classList.contains("is-minimized");
-        if (hidden) record.needsViewportLayout = true;
-        else positionWindow(record, true);
-      });
+      apps.forEach((r) => { if (r.node.classList.contains("is-closed") || r.node.classList.contains("is-minimized")) r.needsViewportLayout = true; });
+      arrangeWindows(true);
     });
   }
   window.addEventListener("resize", scheduleViewportLayout);
   window.visualViewport?.addEventListener("resize", scheduleViewportLayout);
+  if ("ResizeObserver" in window) new ResizeObserver(scheduleViewportLayout).observe(desktop);
 
+  const clockTime = document.querySelector("#clock-time");
+  const timeFormatter = new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+  const dateFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "2-digit" });
+  let clockShowsDate = false;
+  let clockTargetShowsDate = false;
+  let clockTransitionTimer = 0;
   function updateClock() {
-    document.querySelector("#clock-time").textContent = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date());
+    const now = new Date();
+    const text = clockShowsDate ? dateFormatter.format(now) : timeFormatter.format(now).toUpperCase();
+    if (clockTime.textContent !== text) clockTime.textContent = text;
   }
+  clockTime.addEventListener("click", () => {
+    clockTargetShowsDate = !clockTargetShowsDate;
+    const nextShowsDate = clockTargetShowsDate;
+    window.clearTimeout(clockTransitionTimer);
+    clockTime.classList.add("is-changing");
+    clockTime.setAttribute("aria-pressed", String(nextShowsDate));
+    clockTime.setAttribute("aria-label", nextShowsDate ? "Current date; click to show time" : "Current local time; click to show date");
+    clockTime.title = nextShowsDate ? "Click to show time" : "Click to show date";
+    clockTransitionTimer = window.setTimeout(() => {
+      clockShowsDate = nextShowsDate;
+      updateClock();
+      clockTime.classList.remove("is-changing");
+    }, 110);
+  });
   openApp("about", null);
   ["projects", "toolkit", "contact"].forEach((id) => createDockButton(id, appMeta[id]));
   updateDock();
   updateClock();
-  window.setInterval(updateClock, 30_000);
+  window.setInterval(updateClock, 1_000);
 
   function escapeHTML(value) {
     return String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);

@@ -7,9 +7,9 @@ window.PORTFOLIO_DATA = {
     email: "ranjanshetty2005@gmail.com",
     location: "India · Available worldwide",
     availability: "Open for internships & projects",
-    education: "B.Tech in Computer Science & Engineering",
-    educationDates: "2023–2027",
-    bio: "I’m a computer science student who loves the craft of building things for the internet. I care about software that feels fast, tactile, and human—with clear structure and personality in the details."
+    education: "B.Tech in Artificial Intelligence & Machine Learning",
+    educationDates: "2024–2028",
+    bio: "I\u2019m a computer science student building thoughtful web experiences—fast, tactile, and human."
   },
   socials: [
     { name: "GitHub", handle: "@rj-shetty", url: "https://github.com/rj-shetty" },
