@@ -17,7 +17,8 @@
     toolkit: { title: "Skills & Tools", center: "" },
     contact: { title: "Contact Ranjan", center: "" },
     terminal: { title: "Terminal", center: "" },
-    notes: { title: "Sticky Notes", center: "" }
+    notes: { title: "Sticky Notes", center: "" },
+    preferences: { title: "Preferences", center: "PERSONALIZE" }
   };
   const apps = new Map();
   const bootRunningApps = new Set(["projects", "toolkit", "contact"]);
@@ -54,7 +55,8 @@
     terminal: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.3"/><path d="M3.8 8h16.4"/><path class="icon-accent" d="m7.2 11.2 2.3 2-2.3 2m4.6 0h3.4"/>',
     toolkit: '<path d="M4 6h16M4 12h16M4 18h16"/><circle class="icon-accent" cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle class="icon-accent" cx="8" cy="18" r="2"/>',
     notes: '<path d="M6 3.8h8l4 4V20H6z"/><path d="M14 3.8v4h4M9 12h6m-6 3h6"/><path class="icon-accent" d="m4 15.5-.8 4 4-.8"/>',
-    contact: '<rect x="3.3" y="5.2" width="17.4" height="13.6" rx="2"/><path d="m4.3 7 7.7 5.8L19.7 7"/><path class="icon-accent" d="m4.4 17.1 5.1-4"/>'
+    contact: '<rect x="3.3" y="5.2" width="17.4" height="13.6" rx="2"/><path d="m4.3 7 7.7 5.8L19.7 7"/><path class="icon-accent" d="m4.4 17.1 5.1-4"/>',
+    preferences: '<circle cx="12" cy="12" r="3.1"/><path d="M19.4 13.4a7.7 7.7 0 0 0 0-2.8l1.5-1.2-1.8-3.1-1.8.7a7.6 7.6 0 0 0-2.4-1.4L14.6 3h-3.5l-.3 2.6a7.6 7.6 0 0 0-2.4 1.4l-1.8-.7-1.8 3.1 1.5 1.2a7.7 7.7 0 0 0 0 2.8l-1.5 1.2 1.8 3.1 1.8-.7a7.6 7.6 0 0 0 2.4 1.4l.3 2.6h3.5l.3-2.6a7.6 7.6 0 0 0 2.4-1.4l1.8.7 1.8-3.1z'
   };
   function appIconMarkup(id) {
     return `<svg class="app-icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${appIcons[id] || appIcons.about}</svg>`;
@@ -186,7 +188,7 @@
     apps.forEach((record, id) => {
       const isOpen = !record.node.classList.contains("is-closed");
       if (isOpen && !dockApps.querySelector(`.dock-app[data-open-app="${id}"]`)) createDockButton(id, record.meta);
-      document.querySelectorAll(`[data-open-app="${id}"]`).forEach((button) => button.classList.toggle("is-open", isOpen));
+      document.querySelectorAll('[data-open-app="' + id + '"], [data-shortcut-id="' + id + '"]').forEach((button) => button.classList.toggle("is-open", isOpen));
     });
 
     dockApps.querySelectorAll(".dock-app").forEach((button) => {
@@ -532,15 +534,15 @@
     let defaultLeft = (bounds.width - width) / 2 + step * openCount;
     let defaultTop = (bounds.height - height) / 2 + step * openCount * .65;
     if (!hasSavedPosition) {
-      const shortcuts = desktop.querySelector(".desktop-apps");
-      if (shortcuts) {
-        const iconsRect = shortcuts.getBoundingClientRect();
+      const shortcutNodes = [...desktop.querySelectorAll(".app-shortcut")];
+      if (shortcutNodes.length) {
         const layerRect = layer.getBoundingClientRect();
+        const iconRects = shortcutNodes.map((button) => button.getBoundingClientRect());
         const icons = {
-          left: iconsRect.left - layerRect.left,
-          right: iconsRect.right - layerRect.left,
-          top: iconsRect.top - layerRect.top,
-          bottom: iconsRect.bottom - layerRect.top
+          left: Math.min(...iconRects.map((rect) => rect.left)) - layerRect.left,
+          right: Math.max(...iconRects.map((rect) => rect.right)) - layerRect.left,
+          top: Math.min(...iconRects.map((rect) => rect.top)) - layerRect.top,
+          bottom: Math.max(...iconRects.map((rect) => rect.bottom)) - layerRect.top
         };
         const intersectsIcons = defaultLeft < icons.right && defaultLeft + width > icons.left
           && defaultTop < icons.bottom && defaultTop + height > icons.top;
@@ -772,13 +774,8 @@
       content.querySelector(".skill-groups").innerHTML = data.skills.map((group) => `<section class="skill-group"><h3>${escapeHTML(group.name)}</h3><div class="skill-chips">${group.items.map((item) => `<span>${escapeHTML(item)}</span>`).join("")}</div></section>`).join("");
       initSkillSearch(record);
     }
-    if (record.id === "contact") {
-      content.querySelector(".email-value").textContent = data.profile.email;
-      content.querySelector(".contact-email").href = `mailto:${encodeURIComponent(data.profile.email)}`;
-      content.querySelector(".location-value").textContent = data.profile.location;
-      content.querySelector(".social-links").innerHTML = data.socials.map((social) => `<a href="${escapeAttribute(social.url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(social.name)} ↗</a>`).join("");
-      initContactActions(record);
-    }
+    if (record.id === "contact") initContactActions(record);
+    if (record.id === "preferences") document.dispatchEvent(new CustomEvent("portfolio-preferences-init", { detail: { record, setTheme } }));
     if (record.id === "terminal") initTerminal(record);
     if (record.id === "notes") initNotes(record);
   }
@@ -812,30 +809,80 @@
 
   function initContactActions(record) {
     const content = record.node.querySelector(".window-content");
-    const button = content.querySelector("[data-copy-email]");
-    const status = content.querySelector("[data-copy-status]");
-    const email = data.profile.email;
-    button.addEventListener("click", async () => {
-      try {
-        if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(email);
-        } else {
-          const helper = document.createElement("textarea");
-          helper.value = email;
-          helper.setAttribute("readonly", "");
-          helper.style.position = "fixed";
-          helper.style.opacity = "0";
-          document.body.append(helper);
-          helper.select();
-          const copied = document.execCommand("copy");
-          helper.remove();
-          if (!copied) throw new Error("Copy unavailable");
-        }
-        status.textContent = "Email copied to clipboard.";
-        playSfx("success", .1);
-      } catch {
-        status.textContent = "Copy was unavailable. Select the address above instead.";
+    const form = content.querySelector("[data-contact-form]");
+    const status = content.querySelector("[data-contact-status]");
+    const feedbackToggle = content.querySelector("[data-feedback-toggle]");
+    const feedbackPanel = content.querySelector("[data-feedback-panel]");
+    const feedbackField = content.querySelector("[data-feedback-field]");
+    const requiredFields = [...form.querySelectorAll("[data-contact-field][required]")];
+    const touchedFields = new WeakSet();
+
+    function validateField(field) {
+      const value = field.value.trim();
+      const fieldName = field.dataset.contactField;
+      let message = "";
+
+      if (!value) {
+        message = fieldName === "message" ? "Add a message before sending." : "Enter your " + fieldName + ".";
+      } else if (field.type === "email" && !field.validity.valid) {
+        message = "Enter a valid email address.";
       }
+
+      const error = content.querySelector('[data-contact-error="' + fieldName + '"]');
+      error.textContent = message;
+      error.hidden = !message;
+      field.setAttribute("aria-invalid", String(Boolean(message)));
+      return !message;
+    }
+
+    requiredFields.forEach((field) => {
+      field.addEventListener("blur", () => {
+        touchedFields.add(field);
+        validateField(field);
+      });
+      field.addEventListener("input", () => {
+        if (touchedFields.has(field)) validateField(field);
+        status.textContent = "";
+      });
+    });
+
+    feedbackToggle.addEventListener("click", () => {
+      const isOpen = feedbackToggle.getAttribute("aria-expanded") !== "true";
+      feedbackToggle.setAttribute("aria-expanded", String(isOpen));
+      feedbackPanel.hidden = !isOpen;
+      feedbackField.disabled = !isOpen;
+      content.querySelector("[data-feedback-indicator]").textContent = isOpen ? "−" : "+";
+      if (isOpen) feedbackField.focus({ preventScroll: true });
+    });
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const invalidFields = requiredFields.filter((field) => !validateField(field));
+      if (invalidFields.length) {
+        status.textContent = "Please check the highlighted fields.";
+        invalidFields[0].focus({ preventScroll: true });
+        return;
+      }
+
+      const name = form.elements.namedItem("name").value.trim();
+      const email = form.elements.namedItem("email").value.trim();
+      const message = form.elements.namedItem("message").value.trim();
+      const feedback = feedbackField.disabled ? "" : feedbackField.value.trim();
+      const subjectName = name.replace(/[\r\n\t]+/g, " ").slice(0, 80);
+      const body = [
+        "Name: " + name,
+        "Email: " + email,
+        "",
+        "Message:",
+        message
+      ];
+      if (feedback) body.push("", "Optional feedback:", feedback);
+
+      const recipient = encodeURIComponent(data.profile.email.trim());
+      const subject = encodeURIComponent("Portfolio message from " + subjectName);
+      const contents = encodeURIComponent(body.join("\r\n"));
+      status.textContent = "Opening your email app with the message details.";
+      window.location.href = "mailto:" + recipient + "?subject=" + subject + "&body=" + contents;
     });
   }
 
@@ -1038,25 +1085,36 @@
     render();
   }
 
+  function activateApp(id, trigger, forceFocus = false) {
+    if (!appMeta[id]) return;
+    if (!startMenu.hidden) setStartMenu(false, false, false);
+    lastTrigger = startMenu.contains(trigger) ? startToggle : trigger;
+    const record = apps.get(id);
+    if (record && !record.node.classList.contains("is-closed") && !record.node.classList.contains("is-minimized")) {
+      if (forceFocus) { playSfx("click", .1); focusRecord(record); }
+      else if (activeRecord === record) minimize(record);
+      else { playSfx("click", .1); focusRecord(record); }
+      return;
+    }
+    openApp(id, trigger);
+  }
+
   document.addEventListener("click", (event) => {
     const trigger = event.target.closest("[data-open-app]");
     if (!trigger) return;
     event.preventDefault();
     if (trigger.classList.contains("dock-app") && suppressDockClick) return;
-    if (!startMenu.hidden) setStartMenu(false, false, false);
-    lastTrigger = startMenu.contains(trigger) ? startToggle : trigger;
-    const record = apps.get(trigger.dataset.openApp);
-    if (record && !record.node.classList.contains("is-closed") && !record.node.classList.contains("is-minimized")) {
-      if (activeRecord === record) minimize(record);
-      else { playSfx("click", .1); focusRecord(record); }
-      return;
-    }
-    openApp(trigger.dataset.openApp, trigger);
+    activateApp(trigger.dataset.openApp, trigger);
+  });
+
+  document.addEventListener("portfolio-open-app", (event) => {
+    const { id, trigger, forceFocus } = event.detail || {};
+    if (trigger instanceof Element) activateApp(id, trigger, forceFocus);
   });
   document.addEventListener("click", (event) => {
     const control = event.target.closest("button, a");
     if (!sfxOn || !control || control === sfxButton) return;
-    if (control.matches("#start-toggle, #theme-toggle, [data-open-app], [data-window-action], [data-note-add], [data-note-undo], [data-copy-email]")) return;
+    if (control.matches("#start-toggle, #theme-toggle, #start-settings, [data-open-app], [data-window-action], [data-note-add], [data-note-undo], .app-shortcut")) return;
     if (control.closest(".window-controls, .sticky-note-tools, [data-terminal-form]")) return;
     playSfx("click", .1);
   });
