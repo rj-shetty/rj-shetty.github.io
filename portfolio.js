@@ -9,6 +9,7 @@
   const themeButton = document.querySelector("#theme-toggle");
   const sfxButton = document.querySelector("#sfx-toggle");
   const themeMeta = document.querySelector('meta[name="theme-color"]');
+  const siteFavicon = document.querySelector("#site-favicon");
   const startMenu = document.querySelector("#start-menu");
   const startToggle = document.querySelector("#start-toggle");
   const appMeta = {
@@ -136,6 +137,7 @@
     themeButton.setAttribute("aria-label", isDark ? "Switch to light theme" : "Switch to dark theme");
     themeButton.title = isDark ? "Switch to light theme" : "Switch to dark theme";
     themeMeta.setAttribute("content", isDark ? "#202822" : "#edf1e8");
+    siteFavicon.setAttribute("href", isDark ? "assets/favicon-dark.svg?v=2026-10-06-contrast" : "assets/favicon.svg?v=2026-10-06-contrast");
     document.dispatchEvent(new CustomEvent("portfolio-theme-change", { detail: { isDark } }));
     if (!persist) return;
     playSfx("click", .1);
