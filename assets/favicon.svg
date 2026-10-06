@@ -1,12 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <style>
     .tile { fill: #252c25; }
-    .mark { fill: #edf1e8; }
+    .mark { fill: none; stroke: #edf1e8; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
     @media (prefers-color-scheme: dark) {
       .tile { fill: #f1f0e8; }
-      .mark { fill: #202822; }
+      .mark { stroke: #202822; }
     }
   </style>
   <rect class="tile" x="2" y="2" width="60" height="60" rx="17" />
-  <text class="mark" x="32" y="43" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="31" font-weight="600">r.</text>
+  <svg x="8" y="8" width="48" height="48" viewBox="0 0 24 24" aria-hidden="true">
+    <path class="mark" d="M10.60 4.79 L10.09 2.18 L13.91 2.18 L13.40 4.79 L16.11 5.91 L17.59 3.71 L20.29 6.41 L18.09 7.89 L19.21 10.60 L21.82 10.09 L21.82 13.91 L19.21 13.40 L18.09 16.11 L20.29 17.59 L17.59 20.29 L16.11 18.09 L13.40 19.21 L13.91 21.82 L10.09 21.82 L10.60 19.21 L7.89 18.09 L6.41 20.29 L3.71 17.59 L5.91 16.11 L4.79 13.40 L2.18 13.91 L2.18 10.09 L4.79 10.60 L5.91 7.89 L3.71 6.41 L6.41 3.71 L7.89 5.91 Z" />
+    <circle class="mark" cx="12" cy="12" r="3" />
+  </svg>
 </svg>

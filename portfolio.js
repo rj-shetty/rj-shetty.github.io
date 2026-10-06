@@ -26,8 +26,9 @@
   let activeRecord = null;
   let lastTrigger = null;
   let drag = null;
-  const WINDOW_SNAP_EDGE = 10;
   const WINDOW_DRAG_THRESHOLD = 8;
+  const WINDOW_SNAP_EDGE = 120;
+  const WINDOW_SNAP_DRAG_THRESHOLD = 4;
   let dockDrag = null;
   let suppressDockClick = false;
   let sfxOn = true;
@@ -56,7 +57,7 @@
     toolkit: '<path d="M4 6h16M4 12h16M4 18h16"/><circle class="icon-accent" cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle class="icon-accent" cx="8" cy="18" r="2"/>',
     notes: '<path d="M6 3.8h8l4 4V20H6z"/><path d="M14 3.8v4h4M9 12h6m-6 3h6"/><path class="icon-accent" d="m4 15.5-.8 4 4-.8"/>',
     contact: '<rect x="3.3" y="5.2" width="17.4" height="13.6" rx="2"/><path d="m4.3 7 7.7 5.8L19.7 7"/><path class="icon-accent" d="m4.4 17.1 5.1-4"/>',
-    preferences: '<circle cx="12" cy="12" r="3.1"/><path d="M19.4 13.4a7.7 7.7 0 0 0 0-2.8l1.5-1.2-1.8-3.1-1.8.7a7.6 7.6 0 0 0-2.4-1.4L14.6 3h-3.5l-.3 2.6a7.6 7.6 0 0 0-2.4 1.4l-1.8-.7-1.8 3.1 1.5 1.2a7.7 7.7 0 0 0 0 2.8l-1.5 1.2 1.8 3.1 1.8-.7a7.6 7.6 0 0 0 2.4 1.4l.3 2.6h3.5l.3-2.6a7.6 7.6 0 0 0 2.4-1.4l1.8.7 1.8-3.1z'
+    preferences: '<path d="M10.60 4.79 L10.09 2.18 L13.91 2.18 L13.40 4.79 L16.11 5.91 L17.59 3.71 L20.29 6.41 L18.09 7.89 L19.21 10.60 L21.82 10.09 L21.82 13.91 L19.21 13.40 L18.09 16.11 L20.29 17.59 L17.59 20.29 L16.11 18.09 L13.40 19.21 L13.91 21.82 L10.09 21.82 L10.60 19.21 L7.89 18.09 L6.41 20.29 L3.71 17.59 L5.91 16.11 L4.79 13.40 L2.18 13.91 L2.18 10.09 L4.79 10.60 L5.91 7.89 L3.71 6.41 L6.41 3.71 L7.89 5.91 Z"/><circle cx="12" cy="12" r="3"/>'
   };
   function appIconMarkup(id) {
     return `<svg class="app-icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${appIcons[id] || appIcons.about}</svg>`;
@@ -178,9 +179,7 @@
     glyph.className = "dock-app-glyph";
     glyph.setAttribute("aria-hidden", "true");
     glyph.innerHTML = appIconMarkup(id);
-    const indicator = document.createElement("i");
-    indicator.setAttribute("aria-hidden", "true");
-    button.append(glyph, indicator);
+    button.append(glyph);
     dockApps.append(button);
   }
 
@@ -268,6 +267,16 @@
   document.addEventListener("pointerup", finishDockDrag);
   document.addEventListener("pointercancel", finishDockDrag);
 
+  const TILE_GAP = 12;
+  const TILE_MIN_SPLIT = 168;
+  const TILE_TARGET_ASPECT = 1.3;
+  const tileOrder = [];
+  const tileSplitRatios = new Map();
+  let tileRoot = null;
+  let tileRects = new Map();
+  let tileSplitRects = new Map();
+  let maximizedTileId = null;
+
   function focusRecord(record) {
     topZ += 1;
     record.node.style.zIndex = String(topZ);
@@ -276,60 +285,92 @@
     updateDock();
   }
 
+  function setMaximizeControl(record, maximized) {
+    const button = record.node.querySelector("[data-window-action='maximize']");
+    button?.setAttribute("aria-label", maximized ? "Restore window size" : "Maximize");
+    button?.setAttribute("aria-pressed", String(maximized));
+  }
+
+  function clearMaximizedTile() {
+    if (!maximizedTileId) return;
+    const record = apps.get(maximizedTileId);
+    maximizedTileId = null;
+    if (!record) return;
+    record.node.classList.remove("is-maximized", "is-suspended");
+    record.restoreBounds = null;
+    setMaximizeControl(record, false);
+  }
+
+  function registerTiledWindow(record) {
+    if (tileOrder.includes(record.id)) return;
+    const preferredIndex = Number.isInteger(record.tileRestoreIndex) ? record.tileRestoreIndex : tileOrder.length;
+    tileOrder.splice(clamp(preferredIndex, 0, tileOrder.length), 0, record.id);
+    record.tileRestoreIndex = null;
+  }
+
+  function removeTiledWindow(record) {
+    const index = tileOrder.indexOf(record.id);
+    if (index >= 0) {
+      record.tileRestoreIndex = index;
+      tileOrder.splice(index, 1);
+    }
+    if (maximizedTileId === record.id) clearMaximizedTile();
+    record.node.classList.remove("is-tiled", "is-suspended", "is-maximized");
+    setMaximizeControl(record, false);
+  }
+
   function focusMostRecent() {
     activeRecord = null;
-    arrangeWindows();
+    updateWindowLayer(false, true);
     if (activeRecord) activeRecord.node.focus({ preventScroll: true });
     else if (lastTrigger?.isConnected) lastTrigger.focus({ preventScroll: true });
   }
+
   function close(record) {
     playSfx("close", .16);
     record.cleanup?.();
+    removeTiledWindow(record);
     record.node.classList.add("is-closed");
-    record.node.classList.remove("is-minimized", "is-maximized", "is-arranged");
+    record.node.classList.remove("is-minimized");
     record.wasDesktopMaximized = false;
     record.desktopBounds = null;
     record.restoreBounds = null;
     record.userMinimized = false;
     record.autoMinimized = false;
-    record.node.querySelector("[data-window-action='maximize']")?.setAttribute("aria-label", "Maximize");
-    record.node.querySelector("[data-window-action='maximize']")?.setAttribute("aria-pressed", "false");
+    setMaximizeControl(record, false);
     focusMostRecent();
   }
+
   function minimize(record) {
     playSfx("close", .11);
     record.pause?.();
+    removeTiledWindow(record);
     record.userMinimized = true;
     record.autoMinimized = false;
     record.node.classList.add("is-minimized");
     focusMostRecent();
   }
-  function toggleMaximize(record) {
+
+  function toggleMaximize(record, requestedRestoreBounds = null) {
     playSfx("click", .12);
-    const button = record.node.querySelector("[data-window-action='maximize']");
     const maximized = record.node.classList.contains("is-maximized");
-    let restoredBounds = null;
     if (maximized) {
-      record.node.classList.remove("is-maximized");
-      const savedBounds = record.restoreBounds ? { ...record.restoreBounds } : readWindowBounds(record.node);
-      restoredBounds = fitWindowSize(record, savedBounds);
+      if (maximizedTileId === record.id) maximizedTileId = null;
+      record.node.classList.remove("is-maximized", "is-suspended");
       record.restoreBounds = null;
-      record.userMoved = true;
-      record.userBounds = restoredBounds;
-      applyWindowBounds(record, restoredBounds);
+      setMaximizeControl(record, false);
     } else {
-      record.restoreBounds = { ...readWindowBounds(record.node) };
+      if (maximizedTileId && maximizedTileId !== record.id) clearMaximizedTile();
+      const currentTile = tileRects.get(record.id);
+      record.restoreBounds = requestedRestoreBounds
+        ? { ...requestedRestoreBounds }
+        : { ...(currentTile || readWindowBounds(record.node)) };
+      maximizedTileId = record.id;
       record.node.classList.add("is-maximized");
+      setMaximizeControl(record, true);
     }
-    const isMaximized = !maximized;
-    button.setAttribute("aria-label", isMaximized ? "Restore window size" : "Maximize");
-    button.setAttribute("aria-pressed", String(isMaximized));
-    arrangeWindows();
-    if (maximized && restoredBounds) {
-      record.node.classList.remove("is-arranged");
-      record.userBounds = fitWindowSize(record, restoredBounds);
-      applyWindowBounds(record, record.userBounds);
-    }
+    reflowTiledWindows();
+    updateWindowLayer();
   }
 
   function readWindowBounds(node) {
@@ -344,10 +385,10 @@
   }
 
   function applyWindowBounds(record, bounds) {
-    record.node.style.left = `${bounds.left}px`;
-    record.node.style.top = `${bounds.top}px`;
-    record.node.style.width = `${bounds.width}px`;
-    record.node.style.height = `${bounds.height}px`;
+    record.node.style.left = bounds.left + "px";
+    record.node.style.top = bounds.top + "px";
+    record.node.style.width = bounds.width + "px";
+    record.node.style.height = bounds.height + "px";
   }
 
   function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
@@ -375,6 +416,7 @@
       height
     };
   }
+
   function fitWindowSize(record, requested, bounds = layer.getBoundingClientRect()) {
     const limits = windowLimits(record, bounds);
     return {
@@ -385,12 +427,233 @@
     };
   }
 
+  function positionWindow(record) {
+    const bounds = layer.getBoundingClientRect();
+    const width = Math.min(record.node.offsetWidth || 1, Math.max(1, bounds.width - 16));
+    const height = Math.min(record.node.offsetHeight || 1, Math.max(1, bounds.height - 16));
+    const requested = {
+      left: Math.max(8, (bounds.width - width) / 2),
+      top: Math.max(8, (bounds.height - height) / 2),
+      width,
+      height
+    };
+    record.floatingBounds = clampWindowBounds(record, requested, bounds);
+    applyWindowBounds(record, record.floatingBounds);
+  }
+
+  function tileGapFor(length) {
+    return Math.min(TILE_GAP, Math.max(0, length - 2));
+  }
+
+  function splitTileRect(rect, axis, ratio) {
+    const length = axis === "x" ? rect.width : rect.height;
+    const gap = tileGapFor(length);
+    const available = Math.max(0, length - gap);
+    const firstLength = available * clamp(ratio, .12, .88);
+    const secondLength = available - firstLength;
+    if (axis === "x") {
+      return [
+        { left: rect.left, top: rect.top, width: firstLength, height: rect.height },
+        { left: rect.left + firstLength + gap, top: rect.top, width: secondLength, height: rect.height }
+      ];
+    }
+    return [
+      { left: rect.left, top: rect.top, width: rect.width, height: firstLength },
+      { left: rect.left, top: rect.top + firstLength + gap, width: rect.width, height: secondLength }
+    ];
+  }
+
+  function chooseTileAxis(rect) {
+    const xGap = tileGapFor(rect.width);
+    const yGap = tileGapFor(rect.height);
+    const splitXAspect = Math.max(.05, (rect.width - xGap) / 2) / Math.max(1, rect.height);
+    const splitYAspect = Math.max(1, rect.width) / Math.max(.05, (rect.height - yGap) / 2);
+    const xError = Math.abs(Math.log(splitXAspect / TILE_TARGET_ASPECT));
+    const yError = Math.abs(Math.log(splitYAspect / TILE_TARGET_ASPECT));
+    return xError <= yError ? "x" : "y";
+  }
+
+  function buildTileTree(records, rect) {
+    if (records.length === 1) return { type: "leaf", recordId: records[0].id };
+    const splitAt = Math.ceil(records.length / 2);
+    const firstRecords = records.slice(0, splitAt);
+    const secondRecords = records.slice(splitAt);
+    const axis = chooseTileAxis(rect);
+    const key = axis + ":" + firstRecords.map((record) => record.id).join(",") + ">" + secondRecords.map((record) => record.id).join(",");
+    const ratio = clamp(tileSplitRatios.get(key) ?? .5, .12, .88);
+    const node = { type: "split", axis, key, ratio, first: null, second: null };
+    const childRects = splitTileRect(rect, axis, ratio);
+    node.first = buildTileTree(firstRecords, childRects[0]);
+    node.second = buildTileTree(secondRecords, childRects[1]);
+    return node;
+  }
+
+  function layoutTileTree(node, rect) {
+    if (!node) return;
+    if (node.type === "leaf") {
+      tileRects.set(node.recordId, rect);
+      return;
+    }
+    tileSplitRects.set(node.key, rect);
+    const childRects = splitTileRect(rect, node.axis, node.ratio);
+    layoutTileTree(node.first, childRects[0]);
+    layoutTileTree(node.second, childRects[1]);
+  }
+
+  function reflowTiledWindows() {
+    const bounds = layer.getBoundingClientRect();
+    if (bounds.width < 1 || bounds.height < 1) return;
+    const visible = tileOrder
+      .map((id) => apps.get(id))
+      .filter((record) => record && !record.node.classList.contains("is-closed") && !record.node.classList.contains("is-minimized"));
+
+    tileRects = new Map();
+    tileSplitRects = new Map();
+    if (maximizedTileId && !visible.some((record) => record.id === maximizedTileId)) clearMaximizedTile();
+
+    if (!visible.length) {
+      tileRoot = null;
+      layer.classList.remove("is-tiled");
+      apps.forEach((record) => record.node.classList.remove("is-tiled", "is-suspended"));
+      return;
+    }
+
+    if (visible.length === 1 && !maximizedTileId) {
+      tileRoot = null;
+      layer.classList.remove("is-tiled");
+      apps.forEach((record) => {
+        record.node.classList.remove("is-tiled", "is-suspended", "is-maximized");
+        setMaximizeControl(record, false);
+      });
+      const record = visible[0];
+      if (!record.floatingBounds) positionWindow(record);
+      else {
+        record.floatingBounds = clampWindowBounds(record, record.floatingBounds, bounds);
+        applyWindowBounds(record, record.floatingBounds);
+      }
+      record.viewportSize = { width: bounds.width, height: bounds.height };
+      return;
+    }
+
+    layer.classList.add("is-tiled");
+    const workspace = {
+      left: 8,
+      top: 8,
+      width: Math.max(0, bounds.width - 16),
+      height: Math.max(0, bounds.height - 16)
+    };
+    tileRoot = buildTileTree(visible, workspace);
+    layoutTileTree(tileRoot, workspace);
+
+    const soloRecord = maximizedTileId ? apps.get(maximizedTileId) : null;
+    apps.forEach((record) => {
+      const isVisible = visible.includes(record);
+      record.node.classList.toggle("is-tiled", isVisible);
+      record.node.classList.toggle("is-suspended", Boolean(soloRecord && isVisible && record !== soloRecord));
+      if (!isVisible) return;
+
+      const isMaximized = record === soloRecord;
+      record.node.classList.toggle("is-maximized", isMaximized);
+      setMaximizeControl(record, isMaximized);
+      if (!isMaximized) {
+        const tile = tileRects.get(record.id);
+        if (tile) applyWindowBounds(record, tile);
+      }
+      record.viewportSize = { width: bounds.width, height: bounds.height };
+    });
+  }
+
+  function tileContains(node, recordId) {
+    if (!node) return false;
+    if (node.type === "leaf") return node.recordId === recordId;
+    return tileContains(node.first, recordId) || tileContains(node.second, recordId);
+  }
+
+  function findTileBoundary(node, recordId, axis, edge) {
+    if (!node || node.type === "leaf") return null;
+    const inFirst = tileContains(node.first, recordId);
+    const branch = inFirst ? node.first : node.second;
+    const nested = findTileBoundary(branch, recordId, axis, edge);
+    if (nested) return nested;
+    const boundaryBelongsToFirst = edge === "e" || edge === "s";
+    return node.axis === axis && inFirst === boundaryBelongsToFirst ? node : null;
+  }
+
+  function getTileResizeTargets(record, direction) {
+    const targets = {};
+    const addTarget = (axis, edge) => {
+      const split = findTileBoundary(tileRoot, record.id, axis, edge);
+      const rect = split && tileSplitRects.get(split.key);
+      if (split && rect) {
+        targets[axis] = {
+          key: split.key,
+          ratio: split.ratio,
+          length: axis === "x" ? rect.width : rect.height
+        };
+      }
+    };
+    if (direction.includes("e")) addTarget("x", "e");
+    else if (direction.includes("w")) addTarget("x", "w");
+    if (direction.includes("s")) addTarget("y", "s");
+    else if (direction.includes("n")) addTarget("y", "n");
+    return targets;
+  }
+
+  function applyTileResizeTargets(targets, deltaX, deltaY) {
+    if (!targets) return;
+    let changed = false;
+    Object.entries(targets).forEach(([axis, target]) => {
+      const available = Math.max(1, target.length - tileGapFor(target.length));
+      const minimum = Math.min(TILE_MIN_SPLIT, available / 2);
+      const delta = axis === "x" ? deltaX : deltaY;
+      const ratio = clamp(target.ratio + delta / available, minimum / available, 1 - minimum / available);
+      tileSplitRatios.set(target.key, ratio);
+      changed = true;
+    });
+    if (changed) reflowTiledWindows();
+  }
+
+  function resizeTiledWindowByKeyboard(record, direction, deltaX, deltaY) {
+    applyTileResizeTargets(getTileResizeTargets(record, direction), deltaX, deltaY);
+  }
+
+  function reorderTiledWindowAtDrop(record, event) {
+    if (tileOrder.length < 2) return;
+    const layerBounds = layer.getBoundingClientRect();
+    const x = event.clientX - layerBounds.left;
+    const y = event.clientY - layerBounds.top;
+    let targetId = null;
+    let nearestDistance = Infinity;
+    tileOrder.forEach((id) => {
+      const rect = tileRects.get(id);
+      if (!rect) return;
+      if (x >= rect.left && x <= rect.left + rect.width && y >= rect.top && y <= rect.top + rect.height) {
+        targetId = id;
+        nearestDistance = -1;
+        return;
+      }
+      if (nearestDistance < 0) return;
+      const dx = x - (rect.left + rect.width / 2);
+      const dy = y - (rect.top + rect.height / 2);
+      const distance = dx * dx + dy * dy;
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        targetId = id;
+      }
+    });
+    if (!targetId || targetId === record.id) return;
+    const from = tileOrder.indexOf(record.id);
+    const to = tileOrder.indexOf(targetId);
+    if (from < 0 || to < 0) return;
+    [tileOrder[from], tileOrder[to]] = [tileOrder[to], tileOrder[from]];
+  }
+
   function updateWindowPosition(event) {
     const { record } = drag;
     const nextTop = drag.top + event.clientY - drag.startY;
     record.userMoved = true;
-    record.node.style.left = `${drag.left + event.clientX - drag.startX}px`;
-    record.node.style.top = `${Math.max(0, nextTop)}px`;
+    record.node.style.left = (drag.left + event.clientX - drag.startX) + "px";
+    record.node.style.top = Math.max(0, nextTop) + "px";
   }
 
   document.addEventListener("pointermove", (event) => {
@@ -400,7 +663,11 @@
       if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) >= WINDOW_DRAG_THRESHOLD) drag.moved = true;
       if (drag.wasMaximized) restoreMaximizedDrag(event);
       if (!drag.wasMaximized && drag.moved) updateWindowPosition(event);
-    } else applyResize(drag.record, drag.direction, event.clientX - drag.startX, event.clientY - drag.startY, drag.start);
+    } else if (drag.kind === "tile-resize") {
+      applyTileResizeTargets(drag.tileTargets, event.clientX - drag.startX, event.clientY - drag.startY);
+    } else {
+      applyResize(drag.record, drag.direction, event.clientX - drag.startX, event.clientY - drag.startY, drag.start);
+    }
   });
 
   function restoreMaximizedDrag(event) {
@@ -416,44 +683,62 @@
     toggleMaximize(record);
 
     const restored = readWindowBounds(record.node);
-    const bounds = {
+    const restoredBounds = {
       ...restored,
       left: event.clientX - layerBounds.left - restored.width * grabX,
       top: Math.max(0, event.clientY - layerBounds.top - grabY)
     };
-    applyWindowBounds(record, bounds);
+    applyWindowBounds(record, restoredBounds);
     record.userMoved = true;
-    record.userBounds = bounds;
-    gesture.left = bounds.left;
-    gesture.top = bounds.top;
+    record.userBounds = restoredBounds;
+    gesture.left = restoredBounds.left;
+    gesture.top = restoredBounds.top;
     gesture.startX = event.clientX;
     gesture.startY = event.clientY;
     gesture.wasMaximized = false;
+    gesture.restoredFromMaximized = true;
   }
+
   function finishGesture(event) {
     if (!drag || (event && drag.pointerId !== event.pointerId)) return;
     const gesture = drag;
+    let maximizeAtTopEdge = false;
     if (gesture.kind === "move" && event?.type === "pointerup") {
       if (Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY) >= WINDOW_DRAG_THRESHOLD) gesture.moved = true;
       if (gesture.wasMaximized) restoreMaximizedDrag(event);
-      if (!gesture.wasMaximized && gesture.moved) updateWindowPosition(event);
+      if (!gesture.wasMaximized) {
+        const smallUpwardSnap = !gesture.restoredFromMaximized
+          && event.clientY <= gesture.startY - WINDOW_SNAP_DRAG_THRESHOLD
+          && gesture.start.top + event.clientY - gesture.startY <= WINDOW_SNAP_EDGE;
+        if (smallUpwardSnap) gesture.moved = true;
+        if (gesture.moved) {
+          updateWindowPosition(event);
+          maximizeAtTopEdge = smallUpwardSnap
+            && readWindowBounds(gesture.record.node).top <= WINDOW_SNAP_EDGE;
+        }
+      }
     }
-    const snapToTop = gesture.kind === "move"
-      && gesture.moved
-      && !gesture.wasMaximized
-      && event?.type === "pointerup"
-      && readWindowBounds(gesture.record.node).top <= WINDOW_SNAP_EDGE;
     gesture.record.node.classList.remove("is-moving", "is-resizing");
     if ((gesture.kind === "move" || gesture.kind === "resize") && !gesture.wasMaximized) {
       gesture.record.userBounds = readWindowBounds(gesture.record.node);
       gesture.record.userMoved = true;
+      if (tileOrder.length === 1) {
+        gesture.record.floatingBounds = maximizeAtTopEdge ? { ...gesture.start } : { ...gesture.record.userBounds };
+      }
     }
     drag = null;
     if (gesture.captureTarget?.hasPointerCapture(gesture.pointerId)) {
       try { gesture.captureTarget.releasePointerCapture(gesture.pointerId); } catch { /* The pointer may already have left the document. */ }
     }
-    if (snapToTop && !gesture.record.node.classList.contains("is-maximized")) toggleMaximize(gesture.record);
+
+    if (maximizeAtTopEdge) {
+      toggleMaximize(gesture.record, gesture.start);
+    } else {
+      if (gesture.kind === "move" && event?.type === "pointerup" && gesture.moved) reorderTiledWindowAtDrop(gesture.record, event);
+      if (gesture.kind === "move" || gesture.kind === "tile-resize" || gesture.kind === "resize") reflowTiledWindows();
+    }
   }
+
   document.addEventListener("pointerup", finishGesture);
   document.addEventListener("pointercancel", finishGesture);
   window.addEventListener("blur", () => finishGesture());
@@ -489,175 +774,32 @@
     applyWindowBounds(record, record.userBounds);
   }
 
-  function positionWindow(record, viewportChanged = false) {
+  function updateWindowLayer(viewportChanged = false, relayout = false) {
     const bounds = layer.getBoundingClientRect();
     if (bounds.width < 1 || bounds.height < 1) return;
 
-    const node = record.node;
-    const previous = record.viewportSize;
-    const saved = readWindowBounds(node);
-    const hasSavedPosition = Number.isFinite(parseFloat(node.style.left)) && Number.isFinite(parseFloat(node.style.top));
-    if (viewportChanged && previous?.width > 0 && previous?.height > 0) {
-      const scaleX = bounds.width / previous.width;
-      const scaleY = bounds.height / previous.height;
-      saved.left *= scaleX;
-      saved.top *= scaleY;
-      if (record.userResized) {
-        saved.width *= scaleX;
-        saved.height *= scaleY;
-      }
-      if (node.classList.contains("is-maximized") && record.restoreBounds) {
-        record.restoreBounds.left *= scaleX;
-        record.restoreBounds.top *= scaleY;
-        if (record.userResized) {
-          record.restoreBounds.width *= scaleX;
-          record.restoreBounds.height *= scaleY;
+    const opened = [...apps.values()].filter((record) => !record.node.classList.contains("is-closed"));
+    if (viewportChanged) {
+      apps.forEach((record) => {
+        if (record.node.classList.contains("is-minimized")) {
+          record.needsViewportLayout = true;
+          return;
         }
-      }
+        record.viewportSize = { width: bounds.width, height: bounds.height };
+        record.needsViewportLayout = false;
+      });
     }
+    if (relayout || viewportChanged) reflowTiledWindows();
 
-    if (node.classList.contains("is-maximized")) {
-      record.viewportSize = { width: bounds.width, height: bounds.height };
-      return;
+    const visible = opened.filter((record) => !record.node.classList.contains("is-minimized"));
+    if (activeRecord && !visible.includes(activeRecord)) activeRecord = null;
+    if (!activeRecord && visible.length) {
+      activeRecord = visible.reduce((frontmost, record) =>
+        Number(record.node.style.zIndex) > Number(frontmost.node.style.zIndex) ? record : frontmost
+      );
     }
-
-    if (!record.userResized) {
-      node.style.removeProperty("width");
-      node.style.removeProperty("height");
-    }
-
-    const natural = readWindowBounds(node);
-    const width = record.userResized ? saved.width : natural.width;
-    const height = record.userResized ? saved.height : natural.height;
-    const openCount = [...apps.values()].filter((item) => item !== record && !item.node.classList.contains("is-closed") && !item.node.classList.contains("is-minimized")).length;
-    const step = clamp(Math.min(bounds.width, bounds.height) * .035, 12, 28);
-    let defaultLeft = (bounds.width - width) / 2 + step * openCount;
-    let defaultTop = (bounds.height - height) / 2 + step * openCount * .65;
-    if (!hasSavedPosition) {
-      const shortcutNodes = [...desktop.querySelectorAll(".app-shortcut")];
-      if (shortcutNodes.length) {
-        const layerRect = layer.getBoundingClientRect();
-        const iconRects = shortcutNodes.map((button) => button.getBoundingClientRect());
-        const icons = {
-          left: Math.min(...iconRects.map((rect) => rect.left)) - layerRect.left,
-          right: Math.max(...iconRects.map((rect) => rect.right)) - layerRect.left,
-          top: Math.min(...iconRects.map((rect) => rect.top)) - layerRect.top,
-          bottom: Math.max(...iconRects.map((rect) => rect.bottom)) - layerRect.top
-        };
-        const intersectsIcons = defaultLeft < icons.right && defaultLeft + width > icons.left
-          && defaultTop < icons.bottom && defaultTop + height > icons.top;
-        if (intersectsIcons) {
-          const rightSide = icons.right + 16 + step * openCount;
-          const belowIcons = icons.bottom + 16;
-          if (rightSide + width <= bounds.width - 8) defaultLeft = Math.max(defaultLeft, rightSide);
-          else if (belowIcons + height <= bounds.height - 8) defaultTop = belowIcons;
-        }
-      }
-    }
-    const requested = {
-      left: hasSavedPosition ? saved.left : defaultLeft,
-      top: hasSavedPosition ? saved.top : defaultTop,
-      width,
-      height
-    };
-    const candidate = hasSavedPosition && record.userMoved
-      ? fitWindowSize(record, requested, bounds)
-      : clampWindowBounds(record, requested, bounds);
-
-    node.style.left = `${candidate.left}px`;
-    node.style.top = `${candidate.top}px`;
-    if (record.userResized) {
-      node.style.width = `${candidate.width}px`;
-      node.style.height = `${candidate.height}px`;
-    }
-    record.viewportSize = { width: bounds.width, height: bounds.height };
-  }
-
-  const WINDOW_GRID = { gap: 12, minWidth: 320, minHeight: 320, aspect: 1.35 };
-
-  function arrangeWindows(viewportChanged = false) {
-    const bounds = layer.getBoundingClientRect();
-    if (bounds.width < 1 || bounds.height < 1) return;
-    const opened = [...apps.values()].filter((r) => !r.node.classList.contains("is-closed"));
-    opened.forEach((r) => {
-      if (r.autoMinimized) { r.node.classList.remove("is-minimized"); r.autoMinimized = false; }
-      const old = r.viewportSize;
-      if (viewportChanged && old?.width && old?.height) {
-        const sx = bounds.width / old.width, sy = bounds.height / old.height;
-        if (r.userBounds) {
-          r.userBounds.left *= sx; r.userBounds.top *= sy;
-          if (r.userResized) { r.userBounds.width *= sx; r.userBounds.height *= sy; }
-          r.userBounds = r.userMoved
-            ? fitWindowSize(r, r.userBounds, bounds)
-            : clampWindowBounds(r, r.userBounds, bounds);
-        }
-        if (r.restoreBounds) {
-          r.restoreBounds.left *= sx; r.restoreBounds.top *= sy;
-          if (r.userResized) { r.restoreBounds.width *= sx; r.restoreBounds.height *= sy; }
-        }
-      }
-    });
-    let candidates = opened.filter((r) => !r.userMinimized);
-    const maxed = candidates.filter((r) => r.node.classList.contains("is-maximized"));
-    if (maxed.length) candidates = [maxed.sort((a,b) => Number(b.node.style.zIndex)-Number(a.node.style.zIndex))[0]];
-    const w = Math.max(1,bounds.width-16), h = Math.max(1,bounds.height-16);
-    const maxCols = Math.max(1,Math.floor((w+12)/(WINDOW_GRID.minWidth+12)));
-    const compact = bounds.width <= 760 || bounds.height <= 380;
-    const maxRows = Math.max(1,Math.floor((h+12)/(WINDOW_GRID.minHeight+12)));
-    const capacity = maxed.length || compact ? 1 : maxCols*maxRows;
-    candidates.sort((a,b) => a===activeRecord ? -1 : b===activeRecord ? 1 : Number(b.node.style.zIndex)-Number(a.node.style.zIndex));
-    const visible = candidates.slice(0,capacity), chosen = new Set(visible);
-    opened.forEach((r) => {
-      if (!chosen.has(r) && !r.userMinimized) {
-        r.pause?.(); r.autoMinimized = true; r.node.classList.add("is-minimized"); r.node.classList.remove("is-focused");
-      } else if (chosen.has(r)) { r.autoMinimized = false; r.node.classList.remove("is-minimized"); }
-      r.viewportSize = { width: bounds.width, height: bounds.height };
-    });
-    if (activeRecord && !chosen.has(activeRecord)) activeRecord = null;
-    if (!activeRecord && visible.length) activeRecord = visible.slice().sort((a,b) => Number(b.node.style.zIndex)-Number(a.node.style.zIndex))[0];
-    apps.forEach((r) => r.node.classList.toggle("is-focused",r===activeRecord && chosen.has(r)));
-    if (!visible.length) { activeRecord=null; layer.hidden=true; updateDock(); return; }
-    layer.hidden=false;
-
-    if (visible.length===1) {
-      const r=visible[0], n=r.node, wasTiled=n.classList.contains("is-arranged");
-      n.classList.remove("is-arranged");
-      if (r.userBounds && (r.userMoved || r.userResized)) {
-        if (!r.userResized) { n.style.removeProperty("width"); n.style.removeProperty("height"); r.userBounds.width=n.offsetWidth; r.userBounds.height=n.offsetHeight; }
-        r.userBounds=r.userMoved ? fitWindowSize(r,r.userBounds,bounds) : clampWindowBounds(r,r.userBounds,bounds);
-        applyWindowBounds(r,r.userBounds);
-      } else {
-        n.style.removeProperty("width"); n.style.removeProperty("height");
-        if (wasTiled || viewportChanged) { n.style.removeProperty("left"); n.style.removeProperty("top"); positionWindow(r,false); }
-      }
-      r.needsViewportLayout=false; updateDock(); return;
-    }
-
-    let cols=1, rows=visible.length, best=-1;
-    for (let c=1;c<=Math.min(maxCols,visible.length);c++) {
-      const rr=Math.ceil(visible.length/c); if(rr>maxRows) continue;
-      const cw=(w-12*(c-1))/c, ch=(h-12*(rr-1))/rr;
-      const score=cw*ch/(1+Math.abs(Math.log((cw/ch)/WINDOW_GRID.aspect))*.7);
-      if(score>best){best=score;cols=c;rows=rr;}
-    }
-    const cw=(w-12*(cols-1))/cols, ch=(h-12*(rows-1))/rows;
-    const order=visible.slice().sort((a,b)=>Number(a.node.style.zIndex)-Number(b.node.style.zIndex));
-    order.forEach((r,i)=>{
-      const n=r.node; n.classList.remove("is-arranged","is-maximized");
-      if(r.userResized && r.userBounds){n.style.width=r.userBounds.width+"px";n.style.height=r.userBounds.height+"px";}
-      else{n.style.removeProperty("width");n.style.removeProperty("height");}
-      const natural=readWindowBounds(n);
-      const bw=r.userResized&&r.userBounds?r.userBounds.width:natural.width;
-      const bh=r.userResized&&r.userBounds?r.userBounds.height:natural.height;
-      const scale=Math.min(1,cw/Math.max(bw,1),ch/Math.max(bh,1));
-      const ww=Math.max(1,bw*scale), wh=Math.max(1,bh*scale);
-      const row=Math.floor(i/cols), start=row*cols, count=Math.min(cols,order.length-start);
-      const rw=count*cw+(count-1)*12;
-      n.classList.add("is-arranged");
-      n.style.left=((bounds.width-rw)/2+(i-start)*(cw+12)+(cw-ww)/2)+"px";
-      n.style.top=((bounds.height-rows*ch-(rows-1)*12)/2+row*(ch+12)+(ch-wh)/2)+"px";
-      n.style.width=ww+"px"; n.style.height=wh+"px"; r.needsViewportLayout=false;
-    });
+    apps.forEach((record) => record.node.classList.toggle("is-focused", record === activeRecord && visible.includes(record)));
+    layer.hidden = visible.length === 0;
     updateDock();
   }
   function openApp(id, trigger) {
@@ -666,6 +808,7 @@
     bootRunningApps.delete(id);
     lastTrigger = trigger && startMenu.contains(trigger) ? startToggle : (trigger || document.activeElement);
     if (!startMenu.hidden) setStartMenu(false, false, false);
+    if (maximizedTileId && maximizedTileId !== id) clearMaximizedTile();
     layer.hidden = false;
     let record = apps.get(id);
     const needsOpenSound = !record || record.node.classList.contains("is-closed") || record.node.classList.contains("is-minimized");
@@ -680,7 +823,7 @@
       node.querySelector(".window-bar-center").textContent = meta.center;
       node.querySelector(".window-content").append(appTemplate.content.cloneNode(true));
       layer.append(node);
-      record = { id, meta, node, userResized: false, userMoved: false, userMinimized: false, autoMinimized: false, userBounds: null, viewportSize: null, needsViewportLayout: false };
+      record = { id, meta, node, userResized: false, userMoved: false, userMinimized: false, autoMinimized: false, userBounds: null, viewportSize: null, needsViewportLayout: false, tileRestoreIndex: null };
       apps.set(id, record);
       createDockButton(record.id, record.meta);
       renderWindow(record);
@@ -703,7 +846,7 @@
         focusRecord(record);
         const wasMaximized = node.classList.contains("is-maximized");
         const maximizedRect = wasMaximized ? node.getBoundingClientRect() : null;
-        drag = { kind: "move", record, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, left: parseFloat(node.style.left), top: parseFloat(node.style.top), wasMaximized, maximizedRect, moved: false, captureTarget: bar };
+        drag = { kind: "move", record, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, start: readWindowBounds(node), left: parseFloat(node.style.left), top: parseFloat(node.style.top), wasMaximized, maximizedRect, restoredFromMaximized: false, moved: false, captureTarget: bar };
         try { bar.setPointerCapture(event.pointerId); } catch { /* Continue with document-level pointer tracking. */ }
         if (!wasMaximized) node.classList.add("is-moving");
       });
@@ -725,7 +868,8 @@
           event.preventDefault();
           event.stopPropagation();
           focusRecord(record);
-          drag = { kind: "resize", record, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, start: readWindowBounds(node), direction, captureTarget: handle };
+          const resizeKind = tileOrder.length > 1 ? "tile-resize" : "resize";
+          drag = { kind: resizeKind, record, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, start: readWindowBounds(node), direction, tileTargets: resizeKind === "tile-resize" ? getTileResizeTargets(record, direction) : null, captureTarget: handle };
           try { handle.setPointerCapture(event.pointerId); } catch { /* Continue with document-level pointer tracking. */ }
           node.classList.add("is-resizing");
         });
@@ -735,18 +879,19 @@
           const delta = 18;
           const deltaX = event.key === "ArrowRight" ? delta : event.key === "ArrowLeft" ? -delta : 0;
           const deltaY = event.key === "ArrowDown" ? delta : event.key === "ArrowUp" ? -delta : 0;
-          applyResize(record, direction, deltaX, deltaY, readWindowBounds(node));
+          if (tileOrder.length > 1) resizeTiledWindowByKeyboard(record, direction, deltaX, deltaY);
+          else applyResize(record, direction, deltaX, deltaY, readWindowBounds(node));
         });
       });
-      positionWindow(record);
     } else {
-      record.node.classList.remove("is-closed", "is-minimized", "is-arranged");
+      record.node.classList.remove("is-closed", "is-minimized");
       record.userMinimized = false;
       record.autoMinimized = false;
-      if (!(record.userBounds && (record.userMoved || record.userResized))) positionWindow(record, record.needsViewportLayout);
     }
+    if (!record.floatingBounds) positionWindow(record);
+    registerTiledWindow(record);
     focusRecord(record);
-    arrangeWindows(record.needsViewportLayout);
+    updateWindowLayer(record.needsViewportLayout, true);
     record.needsViewportLayout = false;
     if (record.id === "terminal") record.node.querySelector("[data-terminal-input]")?.focus({ preventScroll: true });
     else record.node.focus({ preventScroll: true });
@@ -1093,7 +1238,14 @@
     if (record && !record.node.classList.contains("is-closed") && !record.node.classList.contains("is-minimized")) {
       if (forceFocus) { playSfx("click", .1); focusRecord(record); }
       else if (activeRecord === record) minimize(record);
-      else { playSfx("click", .1); focusRecord(record); }
+      else {
+        if (maximizedTileId && maximizedTileId !== id) {
+          clearMaximizedTile();
+          reflowTiledWindows();
+        }
+        playSfx("click", .1);
+        focusRecord(record);
+      }
       return;
     }
     openApp(id, trigger);
@@ -1133,7 +1285,7 @@
     viewportLayoutFrame = window.requestAnimationFrame(() => {
       viewportLayoutFrame = 0;
       apps.forEach((r) => { if (r.node.classList.contains("is-closed") || r.node.classList.contains("is-minimized")) r.needsViewportLayout = true; });
-      arrangeWindows(true);
+      updateWindowLayer(true);
     });
   }
   window.addEventListener("resize", scheduleViewportLayout);

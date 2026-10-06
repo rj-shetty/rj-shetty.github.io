@@ -15,7 +15,10 @@
   let pendingWallpaper = null;
   let wallpaperUrl = "";
   let wallpaperVideo = null;
-  let wallpaperMuted = true;
+  let wallpaperMuted = readPreference("portfolio-os-wallpaper-muted", "false") === "true";
+  let wallpaperPlaybackBlocked = false;
+  let wallpaperVolume = readNumberPreference("portfolio-os-wallpaper-volume", 50) / 100;
+  let wallpaperVolumePanelOpen = false;
   let savedSound = null;
   let pendingSound = null;
   let soundUrl = "";
@@ -198,6 +201,28 @@
     });
   }
 
+  function playWallpaperVideo(video) {
+    if (!video) return;
+    video.muted = wallpaperMuted;
+    video.volume = wallpaperVolume;
+    const attempt = video.play();
+    if (!attempt || typeof attempt.then !== "function") return;
+    attempt.then(() => {
+      if (video === wallpaperVideo) {
+        wallpaperPlaybackBlocked = false;
+        refreshWallpaperUI();
+      }
+    }).catch(() => {
+      if (video !== wallpaperVideo || wallpaperMuted) return;
+      video.muted = true;
+      wallpaperPlaybackBlocked = true;
+      wallpaperMessage = "Autoplay blocked. Raise the slider or interact with the page to start audio.";
+      const mutedAttempt = video.play();
+      if (mutedAttempt && typeof mutedAttempt.catch === "function") mutedAttempt.catch(() => {});
+      refreshWallpaperUI();
+    });
+  }
+
   function createWallpaperElement(record, url, preview) {
     let element;
     if (record.kind === "video") {
@@ -206,6 +231,7 @@
       element.loop = !preview;
       element.playsInline = true;
       element.muted = preview || wallpaperMuted;
+      element.volume = wallpaperVolume;
       element.preload = preview ? "none" : "auto";
       element.disablePictureInPicture = true;
     } else {
@@ -216,7 +242,7 @@
     element.className = preview ? "wallpaper-preview-media" : "wallpaper-desktop-media";
     element.setAttribute("aria-hidden", "true");
     element.src = url;
-    if (record.kind === "video" && !preview) element.play().catch(() => {});
+
     return element;
   }
 
@@ -230,13 +256,25 @@
         ? savedWallpaper.name
         : "Up to 20 MB for images and GIFs, 100 MB for video.";
     ui.wallpaperState.textContent = pendingWallpaper ? "Preview" : savedWallpaper ? "Saved on this device" : "Default";
-    ui.wallpaperPreview.setAttribute("aria-label", (pendingWallpaper || savedWallpaper) ? "Preview of " + (pendingWallpaper || savedWallpaper).name : "Preview of the default desktop wallpaper");
+    ui.wallpaperPreview.setAttribute("aria-label", (pendingWallpaper || savedWallpaper) ? "Wallpaper preview of " + (pendingWallpaper || savedWallpaper).name : "Wallpaper preview of the default desktop wallpaper");
     ui.wallpaperMessage.textContent = wallpaperMessage;
     ui.wallpaperMessage.dataset.state = /^(Could not|That |Use |This |Your browser blocked)/.test(wallpaperMessage) ? "error" : "info";
     ui.wallpaperAudioControls.hidden = !wallpaperVideo;
-    ui.wallpaperAudioLabel.textContent = wallpaperMuted ? "Video audio is muted" : "Video audio is on";
-    ui.wallpaperAudioButton.textContent = wallpaperMuted ? "Unmute video audio" : "Mute video audio";
-    ui.wallpaperAudioButton.setAttribute("aria-pressed", String(!wallpaperMuted));
+    const audioRequested = !wallpaperMuted && wallpaperVolume > 0;
+    const audioActive = audioRequested && !wallpaperPlaybackBlocked;
+    const audioState = audioActive ? "on" : audioRequested ? "blocked" : "off";
+    const audioButtonLabel = audioActive
+      ? "Mute wallpaper audio"
+      : audioState === "blocked"
+        ? "Retry wallpaper audio"
+        : "Unmute wallpaper audio";
+    ui.wallpaperAudioButton.setAttribute("aria-label", audioButtonLabel);
+    ui.wallpaperAudioButton.setAttribute("aria-pressed", String(audioActive));
+    ui.wallpaperAudioControls.dataset.open = String(wallpaperVolumePanelOpen);
+    ui.wallpaperAudioControls.dataset.audioState = audioState;
+    ui.wallpaperAudioWave.hidden = !audioActive;
+    ui.wallpaperAudioMuted.hidden = audioActive;
+    ui.wallpaperVolumeValue.textContent = Math.round(wallpaperVolume * 100) + "%";
   }
 
   function syncWallpaperPreview() {
@@ -262,7 +300,7 @@
   }
 
   function showWallpaper(record, url) {
-    wallpaperMuted = true;
+    wallpaperPlaybackBlocked = false;
     const previousUrl = wallpaperUrl;
     wallpaperUrl = url;
     if (wallpaperVideo) wallpaperVideo.pause();
@@ -274,7 +312,7 @@
     if (desktopMedia instanceof HTMLVideoElement) wallpaperVideo = desktopMedia;
 
     syncWallpaperPreview();
-    if (wallpaperVideo) wallpaperVideo.muted = true;
+    if (wallpaperVideo) playWallpaperVideo(wallpaperVideo);
     if (previousUrl && previousUrl !== url) URL.revokeObjectURL(previousUrl);
     refreshWallpaperUI();
   }
@@ -284,6 +322,7 @@
     wallpaperUrl = "";
     if (wallpaperVideo) wallpaperVideo.pause();
     wallpaperVideo = null;
+    wallpaperPlaybackBlocked = false;
     desktop.classList.remove("has-wallpaper");
     wallpaperLayer.replaceChildren();
     syncWallpaperPreview();
@@ -377,8 +416,12 @@
       wallpaperPreview: root.querySelector("[data-wallpaper-preview]"),
       wallpaperPreviewEmpty: root.querySelector("[data-wallpaper-preview-empty]"),
       wallpaperAudioControls: root.querySelector("[data-wallpaper-audio-controls]"),
-      wallpaperAudioLabel: root.querySelector("[data-wallpaper-audio-label]"),
       wallpaperAudioButton: root.querySelector("[data-wallpaper-audio]"),
+      wallpaperAudioWave: root.querySelector("[data-wallpaper-audio-wave]"),
+      wallpaperAudioMuted: root.querySelector("[data-wallpaper-audio-muted]"),
+      wallpaperVolumeValue: root.querySelector("[data-wallpaper-volume-value]"),
+      wallpaperVolumeDown: root.querySelector("[data-wallpaper-volume-down]"),
+      wallpaperVolumeUp: root.querySelector("[data-wallpaper-volume-up]"),
       soundFile: root.querySelector("[data-sound-file]"),
       soundChoose: root.querySelector("[data-sound-choose]"),
       soundSave: root.querySelector("[data-sound-save]"),
@@ -469,19 +512,58 @@
 
     ui.wallpaperAudioButton.addEventListener("click", () => {
       if (!wallpaperVideo) return;
-      wallpaperMuted = !wallpaperMuted;
+      if (wallpaperMuted || wallpaperVolume === 0 || wallpaperPlaybackBlocked) {
+        wallpaperMuted = false;
+        if (wallpaperVolume === 0) {
+          const lastVolume = readNumberPreference("portfolio-os-wallpaper-last-volume", 50);
+          wallpaperVolume = (lastVolume || 50) / 100;
+          writePreference("portfolio-os-wallpaper-volume", String(Math.round(wallpaperVolume * 100)));
+        }
+      } else {
+        wallpaperMuted = true;
+      }
+      writePreference("portfolio-os-wallpaper-muted", String(wallpaperMuted));
       wallpaperVideo.muted = wallpaperMuted;
-      if (!wallpaperMuted) {
-        const attempt = wallpaperVideo.play();
-        if (attempt && typeof attempt.catch === "function") {
-          attempt.catch(() => {
-            wallpaperMuted = true;
-            wallpaperVideo.muted = true;
-            wallpaperMessage = "Your browser blocked video audio. Try again after interacting with the page.";
-            refreshWallpaperUI();
-          });
+      wallpaperVideo.volume = wallpaperVolume;
+      wallpaperVolumePanelOpen = true;
+      wallpaperMessage = "";
+      if (wallpaperMuted) wallpaperPlaybackBlocked = false;
+      else playWallpaperVideo(wallpaperVideo);
+      refreshWallpaperUI();
+    });
+
+    function setWallpaperVolume(value) {
+      const wasMuted = wallpaperMuted;
+      wallpaperVolume = Math.max(0, Math.min(1, Math.round(value * 100) / 100));
+      wallpaperMuted = wallpaperVolume === 0;
+      if (wallpaperVolume > 0) {
+        writePreference("portfolio-os-wallpaper-last-volume", String(Math.round(wallpaperVolume * 100)));
+      }
+      writePreference("portfolio-os-wallpaper-volume", String(Math.round(wallpaperVolume * 100)));
+      writePreference("portfolio-os-wallpaper-muted", String(wallpaperMuted));
+      wallpaperVolumePanelOpen = true;
+      if (wallpaperVideo) {
+        wallpaperVideo.volume = wallpaperVolume;
+        wallpaperVideo.muted = wallpaperMuted;
+        if (wallpaperMuted) wallpaperPlaybackBlocked = false;
+        else if (wasMuted || wallpaperPlaybackBlocked) {
+          wallpaperMessage = "";
+          playWallpaperVideo(wallpaperVideo);
         }
       }
+      refreshWallpaperUI();
+    }
+
+    ui.wallpaperVolumeDown.addEventListener("click", () => {
+      setWallpaperVolume((Math.round(wallpaperVolume * 100) - 10) / 100);
+    });
+    ui.wallpaperVolumeUp.addEventListener("click", () => {
+      setWallpaperVolume((Math.round(wallpaperVolume * 100) + 10) / 100);
+    });
+
+    ui.wallpaperAudioControls.addEventListener("focusout", (event) => {
+      if (ui.wallpaperAudioControls.contains(event.relatedTarget)) return;
+      wallpaperVolumePanelOpen = false;
       refreshWallpaperUI();
     });
 
@@ -602,13 +684,27 @@
 
   document.addEventListener("portfolio-preferences-init", (event) => initPreferences(event.detail));
 
+  function resumeWallpaperAudioFromGesture(event) {
+    const inAudioControls = preferencesUI && preferencesUI.wallpaperAudioControls.contains(event.target);
+    if (!inAudioControls && !wallpaperMuted && wallpaperPlaybackBlocked && wallpaperVideo) playWallpaperVideo(wallpaperVideo);
+  }
+
+  document.addEventListener("pointerdown", resumeWallpaperAudioFromGesture, true);
+  document.addEventListener("keydown", resumeWallpaperAudioFromGesture, true);
+
+  document.addEventListener("click", (event) => {
+    if (!wallpaperVolumePanelOpen || !preferencesUI || preferencesUI.wallpaperAudioControls.contains(event.target)) return;
+    wallpaperVolumePanelOpen = false;
+    refreshWallpaperUI();
+  });
+
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       if (wallpaperVideo) wallpaperVideo.pause();
       if (soundEnabled && !soundPlayer.paused) soundPlayer.pause();
       return;
     }
-    if (wallpaperVideo) wallpaperVideo.play().catch(() => {});
+    if (wallpaperVideo) playWallpaperVideo(wallpaperVideo);
     if (soundEnabled && savedSound) startSound();
   });
 
