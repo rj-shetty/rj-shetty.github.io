@@ -137,7 +137,7 @@
     themeButton.setAttribute("aria-label", isDark ? "Switch to light theme" : "Switch to dark theme");
     themeButton.title = isDark ? "Switch to light theme" : "Switch to dark theme";
     themeMeta.setAttribute("content", isDark ? "#202822" : "#edf1e8");
-    siteFavicon.setAttribute("href", isDark ? "assets/favicon-dark.svg?v=2026-10-06-inverted" : "assets/favicon.svg?v=2026-10-06-inverted");
+    siteFavicon.setAttribute("href", isDark ? "assets/favicon-dark.svg?v=2026-10-06-rs" : "assets/favicon.svg?v=2026-10-06-rs");
     document.dispatchEvent(new CustomEvent("portfolio-theme-change", { detail: { isDark } }));
     if (!persist) return;
     playSfx("click", .1);
@@ -1259,6 +1259,18 @@
     event.preventDefault();
     if (trigger.classList.contains("dock-app") && suppressDockClick) return;
     activateApp(trigger.dataset.openApp, trigger);
+  });
+
+  const illustrationBounceTimers = new WeakMap();
+  document.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const button = target?.closest(".profile-artwork-button");
+    if (!button || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    window.clearTimeout(illustrationBounceTimers.get(button));
+    button.classList.remove("is-bouncing");
+    void button.offsetWidth;
+    button.classList.add("is-bouncing");
+    illustrationBounceTimers.set(button, window.setTimeout(() => button.classList.remove("is-bouncing"), 480));
   });
 
   document.addEventListener("portfolio-open-app", (event) => {

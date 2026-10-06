@@ -213,7 +213,21 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outlin
 .profile-intro { max-width: 42ch; margin: 0; color: var(--muted); font-size: clamp(11px, .96vw, 13px); line-height: 1.7; }
 .inline-link { display: inline-flex; align-items: center; gap: 7px; margin-top: 14px; padding: 0; border: 0; background: none; color: var(--ink); cursor: pointer; text-decoration: none; font-size: 10px; font-weight: 600; }
 .inline-link span { color: var(--accent); }
-.profile-artwork { display: block; width: min(100%, 228px); height: auto; aspect-ratio: 1; justify-self: end; border: 1px solid var(--line); border-radius: clamp(15px, 1.8vw, 22px); background: #fff; object-fit: contain; box-shadow: 0 14px 34px rgba(0, 0, 0, .12); }
+.profile-artwork-button { display: block; width: min(100%, 228px); aspect-ratio: 1; justify-self: end; overflow: hidden; padding: 0; border: 1px solid var(--line); border-radius: clamp(15px, 1.8vw, 22px); background: #fff; box-shadow: 0 14px 34px rgba(0, 0, 0, .12); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform .2s cubic-bezier(.2, .75, .3, 1), border-color .2s ease, box-shadow .22s ease; }
+.profile-artwork { display: block; width: 100%; height: 100%; object-fit: contain; }
+.profile-artwork-button:active { transform: scale(.975); transition-duration: .1s; }
+.profile-artwork-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+@media (hover: hover) and (pointer: fine) {
+  .profile-artwork-button:hover { transform: translateY(-3px) scale(1.025); border-color: rgba(var(--accent-rgb), .32); box-shadow: 0 17px 36px rgba(0, 0, 0, .13), 0 0 0 3px rgba(var(--accent-rgb), .06); }
+}
+@keyframes profile-artwork-bounce { 0%, 100% { transform: translateY(0) scale(1) rotate(0); } 24% { transform: translateY(2px) scale(.965) rotate(-.6deg); } 62% { transform: translateY(-3px) scale(1.025) rotate(.45deg); } }
+@keyframes profile-artwork-glow { 0%, 100% { box-shadow: 0 14px 34px rgba(0, 0, 0, .12); } 38% { box-shadow: 0 17px 36px rgba(0, 0, 0, .13), 0 0 0 4px rgba(var(--accent-rgb), .1); } }
+.profile-artwork-button.is-bouncing { animation: profile-artwork-glow .44s ease-out; }
+.profile-artwork-button.is-bouncing .profile-artwork { animation: profile-artwork-bounce .44s cubic-bezier(.2, .75, .3, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .profile-artwork-button, .profile-artwork-button:active { transform: none; transition: none; }
+  .profile-artwork-button.is-bouncing, .profile-artwork-button.is-bouncing .profile-artwork { animation: none; }
+}
 .profile-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(9px, 1.3vw, 14px); padding: 0; border: 0; }
 .fact-label { display: block; margin-bottom: 8px; color: var(--faint); font: 500 8px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
 .profile-fact { min-width: 0; padding: 14px clamp(11px, 1.4vw, 17px); border-radius: 12px; background: rgba(128, 128, 128, .055); }
@@ -293,7 +307,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outlin
   .app-window { --window-min-width: 24rem; --window-min-height: 20rem; }
   .view-about { padding-right: 27px; padding-left: 27px; }
   .profile-hero { grid-template-columns: minmax(0, 1.2fr) minmax(150px, .8fr); gap: 20px; }
-  .profile-artwork { width: min(100%, 190px); }
+  .profile-artwork-button { width: min(100%, 190px); }
 }
 
 @media (max-width: 760px) {
@@ -344,7 +358,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outlin
   .profile-hero { grid-template-columns: minmax(0, 1fr) minmax(120px, 29%); gap: 16px; }
   .view-about .profile-copy h2 { margin: 10px 0 13px; font-size: clamp(29px, 5.2vw, 36px); }
   .profile-intro { font-size: 10px; line-height: 1.65; }
-  .profile-artwork { width: 100%; max-width: 152px; border-radius: 14px; }
+  .profile-artwork-button { width: 100%; max-width: 152px; border-radius: 14px; }
   .profile-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .profile-fact { padding: 12px 10px; }
 
@@ -381,7 +395,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outlin
   .view-about .profile-copy h2 { margin: 8px 0 11px; font-size: clamp(22px, 6.2vw, 28px); line-height: 1.06; letter-spacing: -.035em; }
   .profile-intro { font-size: 9px; line-height: 1.58; }
   .view-about .inline-link { gap: 6px; margin-top: 11px; padding: 8px 9px; font-size: 8px; }
-  .profile-artwork { width: 100%; max-width: 124px; margin-top: 0; border-radius: 12px; }
+  .profile-artwork-button { width: 100%; max-width: 124px; margin-top: 0; border-radius: 12px; }
   .profile-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
   .profile-fact { padding: 10px; }
   .profile-facts > .profile-fact:nth-child(2) { grid-column: 1 / -1; }
