@@ -137,7 +137,7 @@
     themeButton.setAttribute("aria-label", isDark ? "Switch to light theme" : "Switch to dark theme");
     themeButton.title = isDark ? "Switch to light theme" : "Switch to dark theme";
     themeMeta.setAttribute("content", isDark ? "#202822" : "#edf1e8");
-    siteFavicon.setAttribute("href", isDark ? "assets/favicon-dark.svg?v=2026-10-06-contrast" : "assets/favicon.svg?v=2026-10-06-contrast");
+    siteFavicon.setAttribute("href", isDark ? "assets/favicon-dark.svg?v=2026-10-06-inverted" : "assets/favicon.svg?v=2026-10-06-inverted");
     document.dispatchEvent(new CustomEvent("portfolio-theme-change", { detail: { isDark } }));
     if (!persist) return;
     playSfx("click", .1);
